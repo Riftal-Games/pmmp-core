@@ -20,13 +20,16 @@ Do the hand implementation only when upstream is behind and we cannot wait. That
 
 ## Stage 1: Prerequisites
 
-- [ ] Linux host. Ubuntu 24.04 is what we run. WSL2 works.
-- [ ] Bedrock Dedicated Server build matching the exact target Minecraft version, with debugging symbols (`bedrock_server_symbols.debug`).
+This work happens in a Linux container on an `ubuntu:24.04` base, not on the host. Nothing here gets installed on Nasir's Windows machine. Build a toolchain image once, with the tooling below baked in, and reuse it for every future protocol update. That image is worth keeping, because this procedure runs under time pressure and installing tools at 2 AM is how a 3-day window becomes a 5-day one.
+
+- [ ] A toolchain container image on `ubuntu:24.04` carrying Python 3, `binutils`, and the PMMP PHP binary from the core image's PHP stage.
+- [ ] The five repo clones bind mounted into it: this fork, BedrockProtocol, BedrockData, BedrockBlockUpgradeSchema, BedrockItemUpgradeSchema. Use the `axolotl-pm` forks of each, matching what `composer.json` pins. Bind mounts mean the work is committed from Windows as normal and nothing is trapped in a container.
+- [ ] Bedrock Dedicated Server build matching the exact target Minecraft version, with debugging symbols (`bedrock_server_symbols.debug`). BDS is a Linux binary, which is the other reason this runs in a container.
 - [ ] Local clone of the `bds-modding-devkit` tooling and the `bds-mod-mapping` data extraction mod.
-- [ ] Python 3 and `binutils` installed.
-- [ ] Local clones of all five repos: this fork, BedrockProtocol, BedrockData, BedrockBlockUpgradeSchema, BedrockItemUpgradeSchema. Use the `axolotl-pm` forks of each, matching what `composer.json` pins.
 - [ ] A test Minecraft world containing the features you intend to exercise.
 - [ ] A real Bedrock client on the target version to test with.
+
+The packet tracer runs BDS under `sudo` inside the container and needs to bind Bedrock's UDP port. Publish `19132/udp`, not TCP. UDP publishing was verified working on this setup on 2026-08-23.
 
 Create a working branch: `git switch -c bedrock-<version>` off `riftal`.
 
@@ -69,6 +72,9 @@ Do not push schema or data changes to a main branch before the Minecraft version
 
 Non-negotiable. A green test suite has never once proven a client can join.
 
+Build the core image from the working branch and boot that image, not a loose source tree. The image is what production runs, so it is what gets tested. `/dev-stack` in `riftal-infra` covers bringing the stack up.
+
+- [ ] Build the core image. Confirm it builds clean, since a protocol change that alters dependencies can break the build stage rather than the runtime.
 - [ ] Create a fresh world in the target Minecraft client version and load it into the server.
 - [ ] Start the server. It must reach "Done" with no exceptions in the log.
 - [ ] Join with a real Bedrock client on the target version.
@@ -85,7 +91,8 @@ If the plugin layer is in play, hand off to `riftal-game` and run `/test-server`
 - [ ] Commit with a subject naming the version, for example `Bedrock <version>`.
 - [ ] Tag it: `git tag -a <version> -m "Bedrock <version>, protocol <number>"`.
 - [ ] `git push origin riftal --tags`
-- [ ] Report to Nasir: the version, the protocol number, and confirmation the boot test passed. Rollout is `riftal-infra`'s job, via `/deploy-release`.
+- [ ] Build the core image from the tag and push it to the registry under an immutable tag matching. The image is the deployable artifact, and `/deploy-release` deploys tags, not commits. A git tag with no image behind it is not shippable.
+- [ ] Report to Nasir: the version, the protocol number, the image tag, and confirmation the boot test passed. Rollout is `riftal-infra`'s job, via `/deploy-release`.
 
 ## Rules
 

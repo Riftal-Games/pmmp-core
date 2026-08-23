@@ -31,7 +31,7 @@ Run `/diff-audit` before any release tag to confirm nothing else crept in.
 
 | Remote | Points at | Use |
 |---|---|---|
-| `origin` | `git@github.com:Riftal-Studios/pmmp-core.git` | Our fork. Private. |
+| `origin` | `git@github.com:Riftal-Games/pmmp-core.git` | Our fork. Private. |
 | `upstream` | `axolotl-pm/PocketMine-MP` | Where protocol updates come from. Fetch before doing protocol work by hand. |
 | `pmmp` | `pmmp/PocketMine-MP` (archived) | True vanilla 5.44.3 baseline, for measuring total drift. |
 
@@ -43,7 +43,7 @@ Branch: `riftal`, currently at tag `5.45.0`.
 - PMMP's final release 5.44.3 was Bedrock 1.26.30, protocol 1001.
 - Live Bedrock at bootstrap time was 26.42 (protocol 2168, released 2026-08-07).
 
-Confirm the live number before acting on it. Read `CURRENT_PROTOCOL` and `MINECRAFT_VERSION_NETWORK` from `vendor/axolotl-pm/bedrock-protocol/src/ProtocolInfo.php` for what this build actually speaks.
+Confirm the live number before acting on it. Read `CURRENT_PROTOCOL` and `MINECRAFT_VERSION_NETWORK` from `vendor/axolotl-pm/bedrock-protocol/src/ProtocolInfo.php` for what this build actually speaks. `vendor/` is produced inside the build container, so on a fresh checkout it does not exist on the host and the pinned `axolotl-pm/bedrock-protocol` version in `composer.json` is the fallback source of truth.
 
 We support a single protocol version at a time. There is no multi-version compatibility layer and we are not adding one. The accepted cost is 1 to 3 days of downtime per Bedrock minor release.
 
@@ -55,15 +55,26 @@ We support a single protocol version at a time. There is no multi-version compat
 
 ## Build and test
 
-Requires the PMMP PHP binary, not system PHP. Build it with `build/php/compile.sh` from the pmmp/PHP-Binaries workflow, or install a prebuilt binary matching this version. Ubuntu 24.04 is the supported host.
+**Everything builds and runs in a container.** Decided 2026-08-23, see `../docs/decision-log.md`. Nothing is installed on the host, and nothing should be. Requesting a host PHP install is the wrong answer, always.
 
-```
-composer install
-vendor/bin/phpstan analyze
-vendor/bin/phpunit tests/phpunit
-```
+`docker/Dockerfile` does the work. Its first stage runs `build/php/compile.sh` to produce the PMMP PHP binary with the extensions this server needs: pmmpthread, leveldb, chunkutils2, crypto, encoding, igbinary, morton, yaml. System PHP has none of them and will never work. The second stage runs composer and builds the phar. The third is a slim runtime.
 
-Boot test before every tag: start the server, join with a real Bedrock client on the target version, confirm chunk load and block break, stop cleanly.
+That PHP stage is deliberately separate so a source change does not recompile PHP. Do not merge the stages. The first build takes roughly 20 to 40 minutes; later ones reuse the layer.
+
+The build image is the artifact. Every instance in production runs this same image by immutable tag, so a build that works here works there by construction.
+
+Locally the container CLI is `wslc`, which is what Nasir's Windows machine has. Nothing in the Dockerfile may depend on it, because production does not have it.
+
+Run `composer install`, `vendor/bin/phpstan analyze`, and `vendor/bin/phpunit tests/phpunit` inside a container built from the PHP stage, not on a host.
+
+Boot test before every tag: start the container, join with a real Bedrock client on the target version through the proxy, confirm chunk load and block break, stop cleanly.
+
+### Known gaps
+
+- `build/php` is a submodule and is **not initialized**. The first build stage copies `build/php/compile.sh`, so the image build fails immediately until `git submodule update --init --recursive` is run.
+- The Dockerfile inherits `ubuntu:22.04` from upstream. Our base image is `ubuntu:24.04`. This needs changing here, and it counts as build tooling under the minimal-diff rule, so it is an acceptable change.
+- `build/php` is pinned to a commit of the archived `pmmp/php-build-scripts`. Whether it builds the extension versions `axolotl-pm` 5.45.0 expects is unverified. Find out on the first build.
+- Four shell scripts show as modified, mode 100755 to 100644, from a Windows checkout dropping the exec bit. `git config core.filemode false` clears it.
 
 ## Communication style
 
