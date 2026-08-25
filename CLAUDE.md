@@ -59,9 +59,22 @@ Protocol changes ship as a new **minor** version, never a patch. PMMP's rule, an
 
 ## Protocol position
 
-- This build: Bedrock 1.26.40, `axolotl-pm/bedrock-protocol` 59.0.1+bedrock-1.26.40.
-- PMMP's final release 5.44.3 was Bedrock 1.26.30, protocol 1001.
-- Live Bedrock at bootstrap time was 26.42 (protocol 2168, released 2026-08-07).
+Verified 2026-08-26 by reading `ProtocolInfo.php` at each ref in `axolotl-pm/BedrockProtocol`.
+
+| Bedrock | Protocol | Where |
+|---|---|---|
+| 1.26.40 | 2168 | this build, `riftal`, protocol lib 59.0.1 |
+| 1.26.44 | 2168 | `upstream/stable`, protocol lib 60.0.0, tags 5.46.0 and 5.46.1 |
+| 1.26.45 | 2169 | `upstream/bedrock-1.26.45`, unmerged, dev-pinned |
+| 1.26.50 | 2192 | `upstream/bedrock-1.26.50`, unmerged. **Preview only, not a target.** |
+
+PMMP's final release 5.44.3 was Bedrock 1.26.30, protocol 1001.
+
+Two things follow.
+
+**The protocol number is unchanged from 1.26.40 to 1.26.44.** Catching up to upstream `stable` is a rebase and a block and item data refresh, not packet work. Same protocol does not mean same data, so the boot test still decides whether it worked.
+
+**26.45 is the first real break**, 2168 to 2169, and it is rolling out per platform, so players are split across both right now. Our single-protocol rule means whichever we serve locks out the other half until they update. That is a decision for Nasir, not a session.
 
 Confirm the live number before acting on it. Read `CURRENT_PROTOCOL` and `MINECRAFT_VERSION_NETWORK` from `vendor/axolotl-pm/bedrock-protocol/src/ProtocolInfo.php` for what this build actually speaks. `vendor/` is produced inside the build container, so on a fresh checkout it does not exist on the host and the pinned `axolotl-pm/bedrock-protocol` version in `composer.json` is the fallback source of truth.
 
