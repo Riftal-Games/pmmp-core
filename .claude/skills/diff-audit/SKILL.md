@@ -19,6 +19,8 @@ Then produce three views:
 
 1. **Against our base**, the diff we actually maintain:
    `git diff --stat upstream/stable...riftal`
+
+   `upstream/stable` is theirs, `riftal` is ours. The mainline is deliberately not named `stable` so this pair cannot be misread. See `CLAUDE.md` under Branches.
 2. **Against true vanilla**, total drift since PMMP's final release:
    `git diff --stat pmmp/stable...riftal`
 3. **File list only**, for classification:

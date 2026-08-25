@@ -31,7 +31,7 @@ This work happens in a Linux container on an `ubuntu:24.04` base, not on the hos
 
 The packet tracer runs BDS under `sudo` inside the container and needs to bind Bedrock's UDP port. Publish `19132/udp`, not TCP. UDP publishing was verified working on this setup on 2026-08-23.
 
-Create a working branch: `git switch -c bedrock-<version>` off `riftal`.
+Create a working branch: `git switch -c bedrock-<version>` off `riftal`. This name is PMMP's convention and upstream uses it too, so a branch of the same name may already exist on `upstream`. Check before you cut, since if it does, Stage 0 above already applies.
 
 ## Stage 2: Generate initial supporting data
 
@@ -87,7 +87,7 @@ If the plugin layer is in play, hand off to `riftal-game` and run `/test-server`
 ## Stage 6: Tag
 
 - [ ] Merge the working branch into `riftal`.
-- [ ] Bump `BASE_VERSION` in `src/VersionInfo.php`.
+- [ ] Bump `BASE_VERSION` in `src/VersionInfo.php`. A protocol change is a **minor** bump, never a patch. Per `CONTRIBUTING.md`, protocol changes force a client update, which is a disruption a patch release may not cause.
 - [ ] Commit with a subject naming the version, for example `Bedrock <version>`.
 - [ ] Tag it: `git tag -a <version> -m "Bedrock <version>, protocol <number>"`.
 - [ ] `git push origin riftal --tags`

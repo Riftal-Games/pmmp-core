@@ -35,7 +35,27 @@ Run `/diff-audit` before any release tag to confirm nothing else crept in.
 | `upstream` | `axolotl-pm/PocketMine-MP` | Where protocol updates come from. Fetch before doing protocol work by hand. |
 | `pmmp` | `pmmp/PocketMine-MP` (archived) | True vanilla 5.44.3 baseline, for measuring total drift. |
 
-Branch: `riftal`, currently at tag `5.45.0`.
+## Branches
+
+Working-branch names follow PMMP's own conventions, per `CONTRIBUTING.md`. Our mainline does not, and that is deliberate.
+
+| Branch | Role |
+|---|---|
+| `riftal` | Our mainline. Default on `origin`. Currently at tag `5.45.0`. |
+| `stable` | Read-only mirror of `upstream/stable`. It is how we see how far upstream has moved. Never commit to it. |
+| `bedrock-<version>` | Protocol work. Cut from `riftal`, merged back into it. |
+| `feat/<name>` | Feature work, which here means build tooling and deployment config. Game logic is forbidden, so there is little else it can be. |
+| `experimental/<name>` | Spikes that may be thrown away. |
+
+We do **not** run PMMP's `minor-next` and `major-next` release lines. Those exist to version a public plugin API across compatibility levels for thousands of consumers. This fork has one consumer and keeps game logic out of core, so both branches would sit empty while still needing to be kept in sync.
+
+The mainline is not called `stable` because that name is taken by the upstream mirror above, and because `/diff-audit` rests on `upstream/stable...riftal` being unambiguous at a glance. That check gets run under release pressure.
+
+Decided 2026-08-26. See `../docs/decision-log.md`.
+
+## Versioning
+
+Protocol changes ship as a new **minor** version, never a patch. PMMP's rule, and the reason is ours too: a protocol change forces every player to update their client, which is a disruption a patch release is not allowed to cause.
 
 ## Protocol position
 
