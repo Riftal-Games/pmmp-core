@@ -77,7 +77,7 @@ jobs:
         exec 3<>"$FIFO"
 
         docker run --name "$CONTAINER_NAME" -i \
-          -p 19132:19132/tcp \
+          -p 19132:19132/udp \
           -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --motd=$EXPECTED_MOTD" \
           local-pocketmine-mp <"$FIFO" >"$LOG" 2>&1 &
         DOCKER_PID=$!
