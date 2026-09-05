@@ -45,3 +45,93 @@ jobs:
 
     - name: Test if it persists plugin data
       run: echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp
+
+    # REACHABLE coverage. The three steps above prove the image builds and that
+    # the server boots and loads plugins, but none of them publishes a port, so
+    # none of them can tell a joinable container from an unjoinable one.
+    # Bedrock is RakNet over UDP: a TCP-only publish produces a container that
+    # passes every check above and that no client can join. Only a real UDP
+    # round trip catches that.
+    - name: Test if it is reachable over UDP
+      timeout-minutes: 10
+      shell: bash
+      env:
+        # Advertised Bedrock protocol. Derived from ProtocolInfo::CURRENT_PROTOCOL
+        # in axolotl-pm/bedrock-protocol 59.0.1+bedrock-1.26.40, which
+        # composer.lock pins. A protocol bump has to move this number
+        # deliberately, because that is the value that otherwise diverges from
+        # the client and from the proxy in silence.
+        EXPECTED_PROTOCOL: "2168"
+        EXPECTED_MOTD: "riftal-reachable-probe"
+        CONTAINER_NAME: "pm-reachable-smoke"
+      run: |
+        set -euo pipefail
+
+        LOG="$(mktemp)"
+        FIFO="$(mktemp -u)"
+        mkfifo "$FIFO"
+        # Unlike the smoke steps above, this one needs the server alive while we
+        # ping it, so it cannot pipe `echo stop` in. Hold stdin open through a
+        # FIFO instead, and write `stop` into it once the ping is done, so the
+        # shutdown stays clean.
+        exec 3<>"$FIFO"
+
+        docker run --name "$CONTAINER_NAME" -i \
+          -p 19132:19132/udp \
+          -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --motd=$EXPECTED_MOTD" \
+          local-pocketmine-mp <"$FIFO" >"$LOG" 2>&1 &
+        DOCKER_PID=$!
+
+        # Readiness is the server's own startFinished line
+        # (resources/translations/eng.ini: 'Done ({%0}s)! For help, type "help"
+        # or "?"'), not a fixed sleep and not "the process is alive". ANSI is
+        # enabled by docker/start.sh, so strip it before matching. Written as two
+        # commands rather than a pipeline because `grep -q` exiting early would
+        # SIGPIPE the `sed` and `pipefail` would then read a match as a miss.
+        READY=0
+        for _ in $(seq 1 180); do
+          sed 's/\x1b\[[0-9;]*m//g' "$LOG" > "$LOG.clean"
+          if grep -qF 'For help, type "help"' "$LOG.clean"; then
+            READY=1
+            break
+          fi
+          if ! kill -0 "$DOCKER_PID" 2>/dev/null; then
+            break
+          fi
+          sleep 1
+        done
+
+        if [ "$READY" != 1 ]; then
+          echo "::error::server never reached the startFinished line, so there was nothing to ping"
+          cat "$LOG"
+          exit 1
+        fi
+        echo "server is up, pinging 127.0.0.1:19132/udp"
+
+        PING_STATUS=0
+        python3 .github/workflows/raknet-ping.py 127.0.0.1 19132 \
+          --expect-motd "$EXPECTED_MOTD" \
+          --expect-protocol "$EXPECTED_PROTOCOL" || PING_STATUS=$?
+
+        # Shut down through the console `stop` command before reporting any
+        # verdict, so the run never ends on an abrupt termination.
+        echo stop >&3
+        exec 3>&-
+        SHUTDOWN_STATUS=0
+        timeout 120 docker wait "$CONTAINER_NAME" > /dev/null || SHUTDOWN_STATUS=$?
+        wait "$DOCKER_PID" || true
+        docker stop "$CONTAINER_NAME" > /dev/null 2>&1 || true
+        docker rm "$CONTAINER_NAME" > /dev/null
+        echo "--- server log ---"
+        cat "$LOG"
+        echo "--- end server log ---"
+
+        if [ "$PING_STATUS" != 0 ]; then
+          echo "::error::NOT REACHABLE: no valid RakNet unconnected pong on 19132/udp"
+          exit "$PING_STATUS"
+        fi
+        if [ "$SHUTDOWN_STATUS" != 0 ]; then
+          echo "::error::server did not shut down cleanly after 'stop' on stdin"
+          exit 1
+        fi
+        echo "REACHABLE confirmed on 19132/udp"
