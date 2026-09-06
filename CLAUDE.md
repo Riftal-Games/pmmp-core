@@ -105,6 +105,7 @@ Boot test before every tag: start the container, join with a real Bedrock client
 ### Known gaps
 
 - `build/php` is a submodule and is **not initialized**. The first build stage copies `build/php/compile.sh`, so the image build fails immediately until `git submodule update --init --recursive` is run.
+- The Dockerfile inherits `ubuntu:22.04` from upstream. Our base image is `ubuntu:24.04`. This needs changing here, and it counts as build tooling under the minimal-diff rule, so it is an acceptable change.
 - `build/php` is pinned to a commit of the archived `pmmp/php-build-scripts`. Whether it builds the extension versions `axolotl-pm` 5.45.0 expects is unverified. Find out on the first build.
 - Four shell scripts show as modified, mode 100755 to 100644, from a Windows checkout dropping the exec bit. `git config core.filemode false` clears it.
 
