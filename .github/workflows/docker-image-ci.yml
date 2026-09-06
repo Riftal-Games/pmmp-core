@@ -34,6 +34,39 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
+    # Hard rule 7 fixes the base image for everything we build. Every other step
+    # here would pass unchanged on any base, so without this one a stage left on
+    # an older release, or a revert of a single FROM, ships green and unnoticed.
+    - name: Test if it is built on the expected Ubuntu release
+      shell: bash
+      env:
+        EXPECTED_UBUNTU: "24.04"
+      run: |
+        set -euo pipefail
+
+        ACTUAL="$(docker run --rm local-pocketmine-mp sh -c '. /etc/os-release && printf %s "$VERSION_ID"')"
+        echo "runtime stage reports Ubuntu $ACTUAL"
+        if [ "$ACTUAL" != "$EXPECTED_UBUNTU" ]; then
+          echo "::error::runtime stage is Ubuntu $ACTUAL, expected $EXPECTED_UBUNTU"
+          exit 1
+        fi
+
+        # The two build stages leave no trace in the shipped image, so the
+        # Dockerfile is the only place their base can be read. A build stage on
+        # a newer release than the runtime stage links the PHP binaries it
+        # compiles against a glibc the runtime stage does not have.
+        DECLARED="$(grep -c '^FROM ubuntu:' docker/Dockerfile)"
+        if [ "$DECLARED" -lt 1 ]; then
+          echo "::error::no 'FROM ubuntu:' line found in docker/Dockerfile, this check is not testing anything"
+          exit 1
+        fi
+        STRAGGLERS="$(grep -n '^FROM ubuntu:' docker/Dockerfile | grep -v "^[0-9]\+:FROM ubuntu:$EXPECTED_UBUNTU\( \|$\)" || true)"
+        if [ -n "$STRAGGLERS" ]; then
+          echo "::error::stage(s) not on Ubuntu $EXPECTED_UBUNTU: $STRAGGLERS"
+          exit 1
+        fi
+        echo "all $DECLARED stages pinned to Ubuntu $EXPECTED_UBUNTU"
+
     - name: Test if it runs the normal server properly
       run: echo stop | docker run --rm -i -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp
 
