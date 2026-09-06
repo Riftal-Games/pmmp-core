@@ -40,7 +40,7 @@ jobs:
     - name: Test if it is built on the expected Ubuntu release
       shell: bash
       env:
-        EXPECTED_UBUNTU: "24.04"
+        EXPECTED_UBUNTU: "22.04"
       run: |
         set -euo pipefail
 
