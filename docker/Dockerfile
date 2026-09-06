@@ -1,5 +1,5 @@
 #PHP is built in a separate image from PM, so that we don't need to rebuild the entire Dockerfile whenever one src file changes
-FROM ubuntu:22.04 AS build-php
+FROM ubuntu:24.04 AS build-php
 ARG COMPILE_SH_ARGS="-f -g -P5"
 
 RUN apt-get update && apt-get install --no-install-recommends -y curl ca-certificates build-essential m4 gzip bzip2 bison git cmake autoconf automake pkg-config libtool libtool-bin re2c
@@ -9,7 +9,7 @@ COPY --chmod=700 ./build/php/compile.sh /opt/pocketmine
 WORKDIR /opt/pocketmine
 RUN ./compile.sh -t linux64 -j ${THREADS:-$(grep -E ^processor /proc/cpuinfo | wc -l)} ${COMPILE_SH_ARGS}
 
-FROM ubuntu:22.04 AS build-pocketmine
+FROM ubuntu:24.04 AS build-pocketmine
 ARG GIT_HASH=""
 RUN test ! -z ${GIT_HASH} || (echo "Missing build-arg GIT_HASH" && false)
 
@@ -33,11 +33,15 @@ RUN php -dphar.readonly=0 ./build/server-phar.php --git ${GIT_HASH}
 # Just to make sure the build script didn't false-positive-exit
 RUN test -f /opt/pocketmine/repo/PocketMine-MP.phar
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 LABEL maintainer="PMMP Team <team@pmmp.io>"
 
 RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates wget
 
+# The base image ships a default `ubuntu` account holding uid/gid 1000, and
+# 1000 is the ownership the /data and /plugins volumes are created with, so it
+# has to belong to pocketmine.
+RUN userdel -r ubuntu
 RUN groupadd -g 1000 pocketmine
 RUN useradd -r --no-create-home -u 1000 -g pocketmine pocketmine
 
