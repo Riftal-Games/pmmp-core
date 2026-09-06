@@ -1,0 +1,23 @@
+name: Probe label permission scope
+on:
+  push:
+    branches: [core/22-probe]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const res = await github.rest.issues.removeLabel({
+              owner: 'Riftal-Games',
+              repo: 'pmmp-core',
+              issue_number: 24,
+              name: 'Status: Waiting on Author',
+            });
+            console.log('PROBE_RESULT status=' + res.status);
