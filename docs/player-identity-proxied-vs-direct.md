@@ -62,6 +62,18 @@ them, so that the two documents can be read against each other:
 | 2 | Present in a downloadable, checksummed artifact |
 | 3 | Observed carrying a real client |
 
+One label is added here that the 2168 document does not have, because this one needs it
+and having two vocabularies for evidence strength in a single document is how a third
+gets invented:
+
+| Label | Means |
+|---|---|
+| **Inferred** | Stated by no source at any tier. A conclusion drawn from tier 1 evidence, which could be wrong while every line it rests on is right. |
+
+`Inferred` is the only such marker in this document, it always appears in bold at the
+head of the sentence it governs, and every instance is deliberate. If a claim below is
+not marked `Inferred`, some cited line says it.
+
 **This document contains tier 1 claims and one measurement, and no tier 3 claim
 anywhere.** There is nothing at tier 2 either: no artifact was downloaded and probed,
 because the question is what the code does, not what a jar contains.
@@ -271,8 +283,13 @@ the downstream for the shapes to agree.
 ## Measured, not read: the two UUID derivations agree
 
 The equality above is the load-bearing claim in this document, so it was measured
-rather than argued from source. Both implementations were run on the same three
-inputs on 2026-09-07.
+rather than argued from source. It was measured twice, by two parties, and **the
+stronger run is the second one**, described at the end of this section. The rows below
+are the first run, kept because they are the ones the claims in this document were
+actually derived from. Read them as the weaker half of the evidence, not the whole of
+it.
+
+Both implementations were run on the same three inputs on 2026-09-07.
 
 PHP 8.2, running the fork's `calculateUuidFromXuid` verbatim, in a throwaway
 `php:8.2-cli` container:
@@ -307,6 +324,11 @@ omitting the version and variant forcing yielded `v=2`, `v=7` and `v=9` with wro
 variant bits, while still retaining the prefix `45a08efc-3dca-`, so a lax prefix
 comparison would have passed it and a shape-only check would have missed it. Full
 verdict on Riftal-Games/pmmp-core#30.
+
+Its six output rows are not reproduced here, and deliberately not reconstructed: the
+verdict records the inputs, the bit assertions and that `sort -u` returned 6, but not
+the six values themselves. Retyping a table this document did not produce would be the
+one defect it could not survive. The verdict is the primary record for that run.
 
 The third row is the empty-XUID case and matters later:
 `13cec93e-ba60-30df-9f67-b97138b8516d` is the single UUID that
@@ -372,13 +394,20 @@ instance against one shared database, and at that point two instances each hold 
 session table that knows nothing of the other. The guard is not weakened by the split so
 much as scoped out of existence: it never sees the second login.
 
-So "is this player already online" and "who is this player" are the same question, and
-neither the fork nor the on-disk store can answer it across instances. In a closed
-economy where every item was mined by a person, one identity holding two live sessions
-on two instances against one database is a duplication path, not just a presence bug.
-Whatever M1 keys on has to be the thing an instance-crossing presence check keys on too.
-That constraint belongs with the decision below, and it is not one this fork can meet
-on its own.
+That much is tier 1: the iteration, its scope, and hard rule 5.
+
+**Inferred:** so "is this player already online" and "who is this player" are the same
+question, and neither the fork nor the on-disk store can answer it across instances. In
+a closed economy where every item was mined by a person, one identity holding two live
+sessions on two instances against one database is a duplication path, not just a
+presence bug. Whatever M1 keys on has to be the thing an instance-crossing presence
+check keys on too.
+
+Marked because it reasons about a schema M1 has not built and a split that has never
+been performed. It is not weaker for being marked, and it is the reason this constraint
+belongs with the decision below rather than being left as a note about a guard. What is
+certain is only the part above the mark: the guard does not see across instances. What
+follows from that depends on what M1 builds.
 
 This is why the platform fact in `riftal-infra/CLAUDE.md` requires
 `player.verify-xuid: false` behind a proxy, and the code says exactly why: proxied
@@ -425,9 +454,9 @@ XUID and UUID from the *client's own* self-signed token. That XUID is empty, so
 `13cec93e-ba60-30df-9f67-b97138b8516d` for everyone. Every unauthenticated player
 behind such a proxy would arrive at the downstream carrying the same UUID.
 
-That is an inference from source, not an observation, and it does not apply to our
-configuration: `online_mode` defaults to `true` (`ProxyConfig.java:105`) and hard rule
-6 requires the proxy to do the Xbox authentication. It is recorded because the failure
+**Inferred**, and it does not apply to our configuration: `online_mode` defaults to
+`true` (`ProxyConfig.java:105`) and hard rule 6 requires the proxy to do the Xbox
+authentication. It is recorded because the failure
 mode is silent and total, and because a single `false` in a proxy config is all that
 separates us from it.
 
@@ -459,8 +488,8 @@ warning per unknown key, and `LoginPacketHandler.php:338-343` throws
 result is log noise rather than a failed login. That last sentence is a code read, not
 an observation.
 
-**Inference, marked:** this makes the `xid` claim the only channel by which a proxied
-XUID could reach this fork without a plugin, and it is the one the fork discards.
+**Inferred:** this makes the `xid` claim the only channel by which a proxied XUID could
+reach this fork without a plugin, and it is the one the fork discards.
 
 ## Consequence for M1's schema
 
