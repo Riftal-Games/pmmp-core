@@ -299,6 +299,15 @@ rather than returning a constant.
 This proves the two *algorithms* coincide. It does not prove a proxied login reaches
 the downstream at all. That is tier 3 and is not established here.
 
+**QA re-ran this independently and its run is the stronger one.** It reproduced the
+three rows above byte-exactly, added three inputs of its own, and asserted the version
+nibble and the RFC 4122 variant bits rather than UUID shape. It then broke the
+comparison twice to show it discriminates. The first break is the one to know about:
+omitting the version and variant forcing yielded `v=2`, `v=7` and `v=9` with wrong
+variant bits, while still retaining the prefix `45a08efc-3dca-`, so a lax prefix
+comparison would have passed it and a shape-only check would have missed it. Full
+verdict on Riftal-Games/pmmp-core#30.
+
 The third row is the empty-XUID case and matters later:
 `13cec93e-ba60-30df-9f67-b97138b8516d` is the single UUID that
 `ChainValidationResult.java:96` produces for *every* caller whose XUID is empty. See
