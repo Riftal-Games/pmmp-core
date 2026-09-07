@@ -451,14 +451,15 @@ rejecting unauthenticated clients, and `HandshakeUtils.processHandshake` takes t
 XUID and UUID from the *client's own* self-signed token. That XUID is empty, so
 `ChainValidationResult.java:96` derives
 `md5v3("pocket-auth-1-xuid:")`, which the measurement above shows is
-`13cec93e-ba60-30df-9f67-b97138b8516d` for everyone. Every unauthenticated player
-behind such a proxy would arrive at the downstream carrying the same UUID.
+`13cec93e-ba60-30df-9f67-b97138b8516d`.
 
-**Inferred**, and it does not apply to our configuration: `online_mode` defaults to
-`true` (`ProxyConfig.java:105`) and hard rule 6 requires the proxy to do the Xbox
-authentication. It is recorded because the failure
-mode is silent and total, and because a single `false` in a proxy config is all that
-separates us from it.
+**Inferred:** every unauthenticated player behind such a proxy would arrive at the
+downstream carrying that same UUID.
+
+It does not apply to our configuration: `online_mode` defaults to `true`
+(`ProxyConfig.java:105`) and hard rule 6 requires the proxy to do the Xbox
+authentication. It is recorded because the failure mode is silent and total, and
+because a single `false` in a proxy config is all that separates us from it.
 
 ## The login-extras channel does not work on this fork
 
