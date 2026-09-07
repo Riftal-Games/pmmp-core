@@ -11,10 +11,22 @@ It changes no code. It records what is true and what is still unproven.
 **The UUID is the same either way. The XUID is not.**
 
 For a player signed into Xbox Live, the UUID this fork ends up with is
-`md5v3("pocket-auth-1-xuid:" + xuid)`, and it is byte-identical whether that player
-connects directly or through WaterdogPE. The proxy computes the same value by the same
-algorithm and forwards it in the field the fork reads. Verified by running both
-implementations on the same inputs, not by comparing source.
+`md5v3("pocket-auth-1-xuid:" + xuid)`, and the proxy computes that same value by the
+same algorithm and forwards it in the field the fork reads.
+
+That sentence is two claims of different strength, and they must not be quoted as one.
+
+- **Measured.** The two derivations are byte-identical. PHP 8.2 running this fork's
+  function against Java 21 running Cloudburst's expression, same inputs, with a negative
+  control. This is the *algorithm* equality and nothing more.
+- **Read from source, not observed.** That WaterdogPE puts that value in `leguuid` and
+  that this fork reads `leguuid`. That is a code read across three codebases, at pinned
+  commits, and no login has been watched doing it.
+
+So "the UUID is the same either way" is a sound conclusion from an exact measurement
+plus an unobserved source reading, not a measured fact end to end. See
+[Measured, not read](#measured-not-read-the-two-uuid-derivations-agree) for the
+boundary, stated again there.
 
 The XUID does not survive the proxy. A proxied login arrives as
 `AuthenticationType::SELF_SIGNED`, and this fork hardcodes `$xuid = ""` on that branch
@@ -37,8 +49,31 @@ There is a real structural choice in this, and it is Nasir's. See
 [The decision this forces](#the-decision-this-forces).
 
 Nobody in this workspace has watched a real login through a WaterdogPE proxy. No proxy
-image exists. Every proxied-path claim below is tier 1 or tier 2 and is labelled as
-such.
+image exists.
+
+## What "tier" means here
+
+Borrowed from `riftal-infra/docs/waterdogpe-protocol-2168.md:26-167`, which defines
+them, so that the two documents can be read against each other:
+
+| Tier | Means |
+|---|---|
+| 1 | Declared in source, read at a pinned commit |
+| 2 | Present in a downloadable, checksummed artifact |
+| 3 | Observed carrying a real client |
+
+**This document contains tier 1 claims and one measurement, and no tier 3 claim
+anywhere.** There is nothing at tier 2 either: no artifact was downloaded and probed,
+because the question is what the code does, not what a jar contains.
+
+The measurement does not fit the ladder, which is why it is named rather than numbered.
+It executes two implementations and compares their output, which is stronger than
+reading either one, and weaker than tier 3 because nothing was running a server. It is
+confined to [one section](#measured-not-read-the-two-uuid-derivations-agree) and
+covers exactly one claim.
+
+Every proxied-path claim below is tier 1 unless it says otherwise, and the sections that
+carry them say so in their own words.
 
 ## What is pinned to what
 
@@ -121,10 +156,13 @@ whatever the sender chose. The server does not derive it and cannot check it.
 
 `$xuid = ""` is a literal. `SelfSignedJwtBody` in the pinned protocol package *does*
 declare an `xid` property, and its own comment says these fields "seem to be present as
-empty strings in a self-signed token for some reason". Nothing in `src/` reads it: the
-only two reads of `->xid` in the whole tree are `LoginPacketHandler.php:96` and `:98`,
-both on the `FULL` branch. A grep for `leguuid` and `->xid` across `src/` returns
-exactly those, plus the type declarations.
+empty strings in a self-signed token for some reason". Nothing in `src/` reads it:
+`grep -rn -- '->xid' src/` returns exactly two lines, `LoginPacketHandler.php:96` and
+`:98`, both on the `FULL` branch. The declaration of `xid` lives in the vendored
+protocol package, not in `src/`.
+
+`grep -rn 'leguuid' src/` returns three lines, all in the same branch: `:115` is an
+`Uuid::isValid` guard, `:116` an exception message, and `:118` the only read.
 
 `ProcessSelfSignedLoginTask.php:93` passes a hard-coded `false` as the `authenticated`
 argument to the callback. A self-signed login is never authenticated on this fork, by
@@ -136,7 +174,8 @@ Tier 1, read from source at `23c834e1`.
 
 The proxy terminates the client connection, validates the client's real token, then
 builds a **new** login packet for the downstream, signed with the proxy's own keypair.
-`LoginData.rebuildLoginPacket`, `LoginData.java:80-95`:
+`LoginData.rebuildLoginPacket` is `LoginData.java:80-95`. Its two load-bearing lines,
+`:90-91`, verbatim:
 
 ```java
 SignedJWT signedPayload = HandshakeUtils.createClientDataToken(this.keyPair, displayName, xuid, uuid, minecraftId);
@@ -158,39 +197,56 @@ both branches of `handleLogin`. That is a code read of a path a 2168 client does
 take, recorded so nobody later assumes the certificate-chain shape is a working
 fallback.
 
-`createClientDataToken`, `HandshakeUtils.java:92-110`, builds the claims:
+**The fork still carries a class that looks like that fallback and is not one.**
+`src/network/mcpe/auth/ProcessLegacyLoginTask.php` exists and is instantiated nowhere:
+`grep -rn 'ProcessLegacyLoginTask' src/` returns only its own declaration at `:35`. The
+helper it calls, `AuthJwtHelper::validateLegacyAuthToken` at `:121`, carries
+`@deprecated` at `:118` and is called from nothing but that dead class. The two are
+an island. Anyone grepping for the certificate chain lands on them first and could
+reasonably conclude the old path is live. It is not, and no login on this fork can
+reach it. Tracked as pmmp-core#32.
+
+`createClientDataToken` builds the claims. `HandshakeUtils.java:97-108`, verbatim and
+complete, so it can be diffed against upstream without surprises:
 
 ```java
 dataChain.addProperty("cpk", publicKeyBase64);
 dataChain.addProperty("leguuid", uuid.toString());
+dataChain.addProperty("iat", timestamp);
 dataChain.addProperty("xname", displayName);
+dataChain.addProperty("exp", timestamp + 24 * 3600);
 dataChain.addProperty("mid", minecraftId);
+dataChain.addProperty("ap", 7);
+dataChain.addProperty("iss", "self");
 // PMMP seem to require this, but CloudburstMC/Protocol does not.
 dataChain.addProperty("aud", "api://auth-minecraft-services/multiplayer");
 // Normally "xid" is sent as empty string for self-signed certificates, but we include it anyway
 dataChain.addProperty("xid", xuid);
 ```
 
-Both comments are upstream's, not mine. The second one is the whole point: WaterdogPE
+Both comments are upstream's. The second one is the whole point: WaterdogPE
 went out of its way to forward the XUID in a field the format does not normally carry
 it in, and this fork discards it at `LoginPacketHandler.php:120`.
 
-The `aud` claim exists because PMMP requires it: `AuthJwtHelper.php:90-92` rejects any
+The `aud` claim exists because PMMP requires it: `AuthJwtHelper.php:92-94` rejects any
 token whose `aud` is not `api://auth-minecraft-services/multiplayer`, and
 `ProcessSelfSignedLoginTask.php:38` is where that constant comes from. WaterdogPE
 already accommodates that.
 
 ### Where the forwarded `uuid` comes from, and why it matches
 
-`HandshakeUtils.processHandshake`, `HandshakeUtils.java:133-141`, takes the UUID from
-Cloudburst's validated identity claims:
+`HandshakeUtils.processHandshake` takes the UUID from Cloudburst's validated identity
+claims. `HandshakeUtils.java:134-141`, verbatim:
 
 ```java
 ChainValidationResult result = EncryptionUtils.validatePayload(packet.getAuthPayload());
 boolean xboxAuth = result.signed();
-ChainValidationResult.IdentityData identityData = result.identityClaims().extraData;
+ChainValidationResult.IdentityClaims identityClaims = result.identityClaims();
+ChainValidationResult.IdentityData identityData = identityClaims.extraData;
+ECPublicKey identityPublicKey = (ECPublicKey) identityClaims.parsedIdentityPublicKey();
 String xuid = identityData.xuid;
 UUID uuid = identityData.identity;
+String minecraftId = identityData.minecraftId;
 ```
 
 And Cloudburst derives that `identity`, for a modern token payload, at
@@ -294,10 +350,26 @@ session that is not an `XboxLivePlayerInfo` (`:938`).
    disconnected as an impersonation attempt.
 2. **Stored-XUID check.** `:975-981`. `LastKnownXUID` is read out of the loaded player
    file and compared. If no XUID was ever recorded the fork logs "No previous XUID
-   recorded, no choice but to trust this player" and continues.
+   recorded, no choice but to trust this player" and continues. That line is
+   `$this->logger->debug` at `:978`, so it is absent at the default `debug.level` of 1.
 
 Both disconnect through `kickForXUIDMismatch` at `:939-950`, whose own comment says it
 is a stopgap and that identifying player data by XUID or UUID would be the real fix.
+
+**The duplicate-session kick does not survive an instance split, and that bears on the
+key choice.** It iterates `$this->manager->getSessions()` at `:952`, which is one
+process's session table. Hard rule 5 requires every world to be splittable onto its own
+instance against one shared database, and at that point two instances each hold a
+session table that knows nothing of the other. The guard is not weakened by the split so
+much as scoped out of existence: it never sees the second login.
+
+So "is this player already online" and "who is this player" are the same question, and
+neither the fork nor the on-disk store can answer it across instances. In a closed
+economy where every item was mined by a person, one identity holding two live sessions
+on two instances against one database is a duplication path, not just a presence bug.
+Whatever M1 keys on has to be the thing an instance-crossing presence check keys on too.
+That constraint belongs with the decision below, and it is not one this fork can meet
+on its own.
 
 This is why the platform fact in `riftal-infra/CLAUDE.md` requires
 `player.verify-xuid: false` behind a proxy, and the code says exactly why: proxied
@@ -383,7 +455,7 @@ XUID could reach this fork without a plugin, and it is the one the fork discards
 
 ## Consequence for M1's schema
 
-Three usable keys, and they fail in different places.
+The fork offers three candidate values. **Two survive contact with the evidence.**
 
 **Username.** What the fork uses today. Survives the proxy being added. Does not
 survive an Xbox gamertag change, and does not survive `replace_username_spaces` being
@@ -397,9 +469,11 @@ the name. Not stable for players who were never Xbox-authenticated, whose UUID i
 whatever their client sent. Available on every path the fork supports, including the
 proxied one.
 
-**XUID.** The strongest identity when it is present, and absent on exactly the path M0
-targets. Keying on it means every proxied player has the empty string as a key. This is
-the option Nasir's concern was pointing at, and it is the one the evidence rules out.
+**XUID. Ruled out.** The strongest identity when it is present, and absent on exactly
+the path M0 targets. Keying on it means every proxied player has the empty string as a
+key. This is the option Nasir's concern was pointing at, and it is the one the evidence
+eliminates. It is listed because eliminating it is a result, not because it remains a
+choice.
 
 The practical shape of the risk: if closed alpha runs **direct** and the proxy arrives
 later, players keep their username and their UUID, and lose their XUID. A
@@ -421,21 +495,36 @@ requirement.
 M1's schema needs a primary key and there is no default that is right on every axis.
 This document deliberately picks none of them.
 
-**A. Key on the derived UUID.** Survives the proxy arriving, survives a gamertag
-change, available on every supported path. Costs: it is forgeable on a directly
-reachable offline-mode downstream, so it depends on the proxy-only-entry-point rule
-being enforced rather than merely intended, and it is meaningless for players who were
-never Xbox-authenticated.
+A and B are the two values the evidence above leaves standing, and every claim about
+them traces to a cited line. **C is not a finding.** No evidence produced it, nothing
+in the fork implements it, and it is offered because a document that eliminates one of
+three values should say what the remaining two cannot do rather than leave the reader to
+notice. Weigh it as a proposal, and weigh A and B as findings.
 
-**B. Key on the username, as the fork does.** Matches how the fork already stores
-things, so plugin and core agree with no translation layer. Costs: a gamertag change
-orphans the account, and `replace_username_spaces` is a one-flag rekey.
+**A. Key on the derived UUID.** *From the evidence.* Survives the proxy arriving
+(`LoginPacketHandler.php:118` against `ChainValidationResult.java:96`), survives a
+gamertag change, available on every path the fork supports. Costs: it is forgeable on a
+directly reachable offline-mode downstream because `leguuid` is unverified on the
+self-signed branch (`LoginPacketHandler.php:115-118`), so it depends on the
+proxy-only-entry-point rule being enforced rather than merely intended, and it is
+meaningless for players who were never Xbox-authenticated.
+
+**B. Key on the username, as the fork does.** *From the evidence.* Matches how the fork
+already stores things (`DatFilePlayerDataProvider.php:50-52`), so plugin and core agree
+with no translation layer. Costs: a gamertag change orphans the account, and
+`replace_username_spaces` (`ProxyConfig.java:126`) is a one-flag rekey.
 
 **C. Key on a server-issued internal ID, with UUID and username as attributes.**
-Immune to every rekey above, because the identity is ours. Costs: more schema, an
+*Proposed here, not derived from anything above.* Immune to every rekey named, because
+the identity is ours rather than the client's or the proxy's. Costs: more schema, an
 account-resolution step on every login, and a decision about what to do the first time
-two identities need merging. This is the only option that can absorb a later change of
-mind about A versus B.
+two identities need merging. It is the only option that can absorb a later change of
+mind about A versus B, and it is also the only one with no line number behind it.
+
+One constraint applies to all three and is not satisfied by any of them alone: the
+duplicate-session guard is per-process, so an instance split leaves presence
+unanswerable no matter which value is the key. See
+[What `player.verify-xuid` actually gates](#what-playerverify-xuid-actually-gates).
 
 All three are Nasir's call, and the choice belongs in an ADR under
 `docs/decisions/` before M1's schema is written, not in this document.
@@ -468,13 +557,25 @@ The option is real; its effect on this fork is not.
 ## What would settle what is still open
 
 Tier 3, an observed proxied login, needs a proxy image, which does not exist
-(riftal-infra#2). When one does, the specific things to read out of the downstream log
-are:
+(riftal-infra#2).
+
+**Set `debug.level` above 1 before running it.** The default is `1`
+(`resources/pocketmine.yml:86-88`, whose own comment is "If > 1, it will show debug
+messages in the console"), and the first line below is `$this->logger->debug`, so at the
+default it never appears. A run at default level produces a log missing it for a reason
+that has nothing to do with identity. That matters most for the second bullet, which is
+an argument from absence and is only sound once a debug line that *did* appear proves
+the channel is reaching the log at all.
+
+When a proxy exists, the specific things to read out of the downstream log are:
 
 - `Xbox Live authenticated: NO` at `NetworkSession.php:935`, confirming the proxied
-  session takes the self-signed path.
+  session takes the self-signed path. **Debug level.**
 - The absence of `Discarding unexpected XUID for non-authenticated player` at `:931`,
   confirming the fork built a plain `PlayerInfo` rather than an `XboxLivePlayerInfo`.
+  That one is `warning`, so it would appear at default level, but read it only
+  alongside a debug line that did appear. Absence in a log you have not shown to be
+  carrying that channel proves nothing.
 - The name of the `.dat` file that appears, confirming the disk key.
 - The player's UUID as the server reports it, compared against
   `md5v3("pocket-auth-1-xuid:" + xuid)` computed from that player's real XUID. That is
