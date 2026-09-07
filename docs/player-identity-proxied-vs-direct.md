@@ -50,15 +50,15 @@ such.
 | WaterdogPE | `master` head `23c834e16a9a0a7cb2aa504b6ae28b358a6892c4`, 2026-09-03T21:38:08Z |
 | CloudburstMC Protocol | `3.0` commit `db36d289968a1d07d6591f0d54426cc058b227c0`, 2026-08-24T11:39:57Z |
 
-The two upstream SHAs are moving branch heads, so they are cited as commits. The
-Cloudburst commit is not a guess: WaterdogPE's `gradle/libs.versions.toml:3` at its
+The two upstream refs are moving branches, so both are cited as commits rather than as
+branch names. The Cloudburst commit is not a guess: WaterdogPE's `gradle/libs.versions.toml:3` at its
 master head pins `protocol = "3.0.0.Beta13-20260824.114016-17"`, and that snapshot
 timestamp, 2026-08-24T11:40:16Z, falls 19 seconds after `db36d289`, which is the
 newest commit on `3.0` at or before it. WaterdogPE's master head is the same SHA that
 `riftal-infra/docs/waterdogpe-protocol-2168.md` used, re-read on 2026-09-07 and
 unchanged.
 
-## The three login paths
+## How the fork derives identity, by login type
 
 This fork is on the 1.26 login format. The old three-link certificate chain with an
 `extraData` blob is gone from the code path a 2168 client can reach. What arrives now
