@@ -144,8 +144,19 @@ loginPacket.setAuthPayload(new TokenPayload(signedPayload.serialize(), AuthType.
 ```
 
 `AuthType.SELF_SIGNED`, always. There is no path in that method that produces `FULL`.
-The `shouldSendCertificateChain` branch above it is the pre-1.26.20 legacy shape and is
-false at 2168 (`HandshakeUtils.java:168-170`).
+The `shouldSendCertificateChain` branch above it is the pre-1.26.20 legacy shape. It is
+set at `HandshakeUtils.java:168-170` to
+`packet.getAuthPayload() instanceof CertificateChainPayload || protocol.isBefore(MINECRAFT_PE_1_26_20)`,
+so at 2168 it is false for any client that sent a token payload, which is what a
+1.26.4x client sends. Either branch produces `SELF_SIGNED`, so the identity conclusion
+does not depend on which one is taken.
+
+The legacy branch would not merely change the identity, it would fail the login
+outright: it leaves `Token` empty and puts the chain in `Certificate`
+(`LoginSerializer_v818.java:31-35`), and this fork reads only `$authInfo->Token` on
+both branches of `handleLogin`. That is a code read of a path a 2168 client does not
+take, recorded so nobody later assumes the certificate-chain shape is a working
+fallback.
 
 `createClientDataToken`, `HandshakeUtils.java:92-110`, builds the claims:
 
