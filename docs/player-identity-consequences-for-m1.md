@@ -151,8 +151,8 @@ follows from that depends on what M1 builds.
 This is why the platform fact in `riftal-infra/CLAUDE.md` requires
 `player.verify-xuid: false` behind a proxy, and the code says exactly why: proxied
 sessions always present `""`, so any player with a recorded non-empty `LastKnownXUID`
-would be kicked on their next join. That requirement is confirmed from the fork's source
-rather than taken from documentation.
+would be kicked on their next join. That requirement is now confirmed from the fork's
+source rather than taken from documentation.
 
 `xbox-auth=false` is required for a different reason. `NetworkSession.php:925-928`
 disconnects an unauthenticated session with "Not authenticated" when auth is required,
@@ -162,8 +162,8 @@ genuinely necessary.
 
 ## The full matrix
 
-Tier 1 throughout, from the code paths above and from the derivation document's. The
-`xbox-auth=false` column is the configuration M0 specifies
+Tier 1 throughout, from the code paths above and from the derivation document's.
+`xbox-auth=false` in every row, which is the configuration M0 specifies
 (`../../docs/roadmap.md:34`).
 
 | Topology | Player signed into XBL | `AuthenticationType` | `authenticated` | XUID the fork keeps | UUID the fork keeps | Disk key |
