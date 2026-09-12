@@ -7,7 +7,9 @@ primary key depending on whether WaterdogPE is in front of the downstream?
 This document covers the derivation: how the fork arrives at a UUID and an XUID for
 each login type, what WaterdogPE builds and sends downstream, and whether the two UUID
 derivations agree. What that identity is then used for, and what M1's schema should key
-on, is Riftal-Games/pmmp-core#34.
+on, is
+[What identity is used for, and what it forces on M1's schema](player-identity-consequences-for-m1.md),
+Riftal-Games/pmmp-core#34.
 
 It changes no code. It records what is true and what is still unproven.
 
