@@ -41,7 +41,7 @@ Working-branch names follow PMMP's own conventions, per `CONTRIBUTING.md`. Our m
 
 | Branch | Role |
 |---|---|
-| `riftal` | Our mainline. Default on `origin`. Currently at tag `5.48.0`. |
+| `riftal` | Our mainline. Default on `origin`. Merged up to upstream `5.48.0`, with our fork's files on top of it. |
 | `stable` | Read-only mirror of `upstream/stable`. It is how we see how far upstream has moved. Never commit to it. |
 | `bedrock-<version>` | Protocol work. Cut from `riftal`, merged back into it. |
 | `feat/<name>` | Feature work, which here means build tooling and deployment config. Game logic is forbidden, so there is little else it can be. |
@@ -65,7 +65,7 @@ Verified 2026-09-14 by reading `ProtocolInfo.php` at each ref in `axolotl-pm/Bed
 |---|---|---|
 | 1.26.40 | 2168 | upstream 5.45.0, protocol lib 59.0.1 |
 | 1.26.44 | 2168 | upstream 5.46.0 and 5.46.1, protocol lib 60.0.0 |
-| 1.26.45 | 2169 | this build, `riftal`, upstream 5.48.0, protocol lib 61.0.0 |
+| 1.26.45 | 2169 | this build, `riftal`, upstream 5.47.0 carried in 5.48.0, protocol lib 61.0.0 |
 | 1.26.50 | 2192 | `upstream/bedrock-1.26.50`, unmerged and dev-pinned. **Preview only, not a target.** |
 
 PMMP's final release 5.44.3 was Bedrock 1.26.30, protocol 1001.
@@ -100,8 +100,7 @@ Boot test before every tag: start the container, join with a real Bedrock client
 
 ### Known gaps
 
-- `build/php` is a submodule and is **not initialized**. The first build stage copies `build/php/compile.sh`, so the image build fails immediately until `git submodule update --init --recursive` is run.
-- The Dockerfile inherits `ubuntu:22.04` from upstream. Our base image is `ubuntu:24.04`. This needs changing here, and it counts as build tooling under the minimal-diff rule, so it is an acceptable change.
+- `build/php` is a submodule and a fresh clone leaves it empty. The first build stage copies `build/php/compile.sh`, so the image build fails immediately until `git submodule update --init --recursive` is run.
 - `build/php` is pinned to a commit of the archived `pmmp/php-build-scripts`. It builds the extension versions `axolotl-pm` 5.48.0 expects; 5.45.0 through 5.48.0 left the pin alone.
 - Four shell scripts show as modified, mode 100755 to 100644, from a Windows checkout dropping the exec bit. `git config core.filemode false` clears it.
 

@@ -79,9 +79,10 @@ jobs:
     - name: Test if it persists plugin data
       run: echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp
 
-    # REACHABLE coverage. The three steps above prove the image builds and that
-    # the server boots and loads plugins, but none of them publishes a port, so
-    # none of them can tell a joinable container from an unjoinable one.
+    # REACHABLE coverage. The four steps above prove the image builds on the
+    # right base and that the server boots and loads plugins, but none of them
+    # publishes a port, so none of them can tell a joinable container from an
+    # unjoinable one.
     # Bedrock is RakNet over UDP: a TCP-only publish produces a container that
     # passes every check above and that no client can join. Only a real UDP
     # round trip catches that.

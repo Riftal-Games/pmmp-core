@@ -100,7 +100,7 @@ carry them say so in their own words.
 | Thing | Pinned at |
 |---|---|
 | This fork | `riftal` head `1e4d7de99c990aacfc2414b20ac4461ac8755198` |
-| `axolotl-pm/BedrockProtocol` | `7528264597919647eb11bb6a2bfe08b75430907f`, from `composer.lock:152` |
+| `axolotl-pm/BedrockProtocol` | `7528264597919647eb11bb6a2bfe08b75430907f`, from `composer.lock:152` at 5.45.0 |
 | WaterdogPE | `master` head `23c834e16a9a0a7cb2aa504b6ae28b358a6892c4`, 2026-09-03T21:38:08Z |
 | CloudburstMC Protocol | `3.0` commit `db36d289968a1d07d6591f0d54426cc058b227c0`, 2026-08-24T11:39:57Z |
 
