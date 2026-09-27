@@ -5,11 +5,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Every job below resets its own workspace ownership before checkout. The
-# self-hosted runner (#46) reuses one workspace across runs, so a file a
-# previous job's Docker mount left owned by a different uid blocks
-# actions/checkout's own cleanup on the next run (#49). The reset is a no-op
-# on a fresh GitHub-hosted runner.
 jobs:
   all-php-versions:
     name: PHP ${{ matrix.php }}
@@ -30,12 +25,6 @@ jobs:
       fail-fast: false
 
     steps:
-      - name: Reset workspace ownership from a previous run
-        run: |
-          if [ -e "${{ github.workspace }}" ]; then
-            sudo chown -R "$(id -u):$(id -g)" "${{ github.workspace }}"
-          fi
-
       - uses: actions/checkout@v7
 
       - name: Setup PHP and tools
@@ -56,28 +45,22 @@ jobs:
       fail-fast: false
 
     steps:
-      - name: Reset workspace ownership from a previous run
-        run: |
-          if [ -e "${{ github.workspace }}" ]; then
-            sudo chown -R "$(id -u):$(id -g)" "${{ github.workspace }}"
-          fi
-
       - uses: actions/checkout@v7
 
       - name: Run ShellCheck
         uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          # build/php is a vendored git submodule (pmmp/php-build-scripts),
+          # not ours to fix or annotate. tests/plugins/DevTools and
+          # examples/plugins/ExamplePlugin are submodules too but carry no
+          # shell scripts, so they never reach the scan either way.
+          ignore_paths: build/php
 
   translations:
     name: Translation checks
     runs-on: [self-hosted, linux, riftal]
 
     steps:
-      - name: Reset workspace ownership from a previous run
-        run: |
-          if [ -e "${{ github.workspace }}" ]; then
-            sudo chown -R "$(id -u):$(id -g)" "${{ github.workspace }}"
-          fi
-
       - uses: actions/checkout@v7
 
       - name: Setup PHP
