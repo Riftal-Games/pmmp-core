@@ -76,8 +76,23 @@ jobs:
         test -f ./docker/test_data/plugin_data/data-test/create-data
         test "$(cat ./docker/test_data/plugin_data/data-test/create-data)" = "successful"
 
+    # The plugin's own exit(1) only proves the check ran when the plugin loads
+    # far enough to run it. If it never loads at all, the server still reaches
+    # Done and docker run still exits 0, so the step needs its own positive
+    # evidence that the check actually happened, not just that nothing failed.
     - name: Test if it persists plugin data
-      run: echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp
+      run: |
+        LOG="$(mktemp)"
+        echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp | tee "$LOG"
+
+        if ! grep -qF "Enabling data-test" "$LOG"; then
+          echo "::error::data-test never enabled, so the persisted data was never actually checked"
+          exit 1
+        fi
+        if ! grep -qF "Test passed: create-data is successful" "$LOG"; then
+          echo "::error::verify-data did not report its explicit success notice"
+          exit 1
+        fi
 
     # REACHABLE coverage. The four steps above prove the image builds on the
     # right base and that the server boots and loads plugins, but none of them
