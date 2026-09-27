@@ -28,15 +28,39 @@ jobs:
       shell: bash
       run: python3 .github/workflows/raknet-ping.selftest.py
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v4
+    # This runner's docker daemon and buildx state persist across separate
+    # workflow runs, unlike a GitHub-hosted runner. A build killed mid-flight by
+    # a cancellation can leave its builder's buildkitd wedged (issue #79: a
+    # single, uncontested build hung right after a prior run was cancelled), so
+    # the next run must not inherit that state by reusing a builder instance
+    # that survived from before. `docker/setup-buildx-action` picks its own
+    # builder name and does not guarantee a fresh one on a host like this, so
+    # the name is scoped to this run and attempt instead, matching the
+    # REACHABLE step's container-naming below, and the old builder under that
+    # name is removed first in case a retried attempt left one behind.
+    - name: Create a run-scoped Buildx builder
+      id: buildx
+      shell: bash
+      timeout-minutes: 5
+      run: |
+        set -euo pipefail
+        BUILDER_NAME="pm-buildx-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+        docker buildx rm "$BUILDER_NAME" > /dev/null 2>&1 || true
+        docker buildx create --name "$BUILDER_NAME" --driver docker-container --use --bootstrap
+        echo "name=$BUILDER_NAME" >> "$GITHUB_OUTPUT"
 
     - name: Create data directories
       run: mkdir ./docker/test_data
 
+    # No step timeout survived a wedge for hours at the job's 360-minute
+    # default (issue #79). 55 minutes leaves headroom over the documented
+    # 20-40 minute real build time while still failing loud well inside an
+    # hour.
     - name: Build image for tag
+      timeout-minutes: 55
       uses: docker/build-push-action@v7.3.0
       with:
+        builder: ${{ steps.buildx.outputs.name }}
         context: ${{ github.workspace }}
         push: false
         load: true
@@ -46,6 +70,13 @@ jobs:
           GIT_HASH=${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+    # Leaves nothing behind for the next run to inherit, wedged or not.
+    - name: Remove the run-scoped Buildx builder
+      if: always()
+      shell: bash
+      timeout-minutes: 3
+      run: docker buildx rm "${{ steps.buildx.outputs.name }}" > /dev/null 2>&1 || true
 
     # Hard rule 7 fixes the base image for everything we build. Every other step
     # here would pass unchanged on any base, so without this one a stage left on
