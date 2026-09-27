@@ -324,19 +324,13 @@ All three are Nasir's call, and the choice belongs in an ADR under
 
 ## Method
 
-The fork's paths were originally read at the tree, at `riftal` head `1e4d7de9`, and
-re-read for pmmp-core#43 at `riftal` head `5868fd8dc5`, the merge of PR #45, against a
-`git diff` of every cited file between upstream tags `5.45.0` and `5.49.1`. Upstream
-paths were read through `gh api` against `WaterdogPE/WaterdogPE`, `CloudburstMC/Protocol`,
-`axolotl-pm/BedrockProtocol` and `cweiske/jsonmapper`, each at the commit in the table
-above; the #43 re-read covered the fork and `axolotl-pm/BedrockProtocol` rows only. No
-claim rests on a README, a config comment or a changelog. Where a claim rests on reading
-code rather than observing behaviour, it says so.
-
-The one measurement is the UUID equality, run on 2026-09-07 as PHP 8.2 in a throwaway
-container against Java 21 on the host, with a negative control. Its inputs, its output
-and its independent re-run are recorded in the derivation document, which is the primary
-record for it; this document uses the result.
+The fork's paths, the upstream reads against `WaterdogPE/WaterdogPE`,
+`CloudburstMC/Protocol` and `axolotl-pm/BedrockProtocol`, and the one measurement are
+read as described in
+[Method](player-identity-proxied-vs-direct.md#method); this document does not repeat
+that account. Its own addition to the sources in that account is
+`cweiske/jsonmapper`, read through `gh api` at the commit in the table above, not
+re-read for #43.
 
 One caution for anyone extending this. A config option existing is not the same as the
 option working. `use_login_extras` exists on the proxy and is described in this
@@ -348,26 +342,12 @@ field being declared in a model is not the same as the field being read.
 
 ## What would settle what is still open
 
-Tier 3, an observed proxied login, needs a proxy image, which does not exist
-(riftal-infra#2).
+The proxy-image gap, the `debug.level` setup it needs and the first two log lines to
+read are in
+[What would settle what is still open](player-identity-proxied-vs-direct.md#what-would-settle-what-is-still-open);
+this document does not repeat them. Two more settle what this document adds on top of
+that:
 
-**Set `debug.level` above 1 before running it.** The default is `1`
-(`resources/pocketmine.yml:86-88`, whose own comment is "If > 1, it will show debug
-messages in the console"), and the first line below is `$this->logger->debug`, so at the
-default it never appears. A run at default level produces a log missing it for a reason
-that has nothing to do with identity. That matters most for the second bullet, which is
-an argument from absence and is only sound once a debug line that *did* appear proves
-the channel is reaching the log at all.
-
-When a proxy exists, the specific things to read out of the downstream log are:
-
-- `Xbox Live authenticated: NO` at `NetworkSession.php:935`, confirming the proxied
-  session takes the self-signed path. **Debug level.**
-- The absence of `Discarding unexpected XUID for non-authenticated player` at `:931`,
-  confirming the fork built a plain `PlayerInfo` rather than an `XboxLivePlayerInfo`.
-  That one is `warning`, so it would appear at default level, but read it only
-  alongside a debug line that did appear. Absence in a log you have not shown to be
-  carrying that channel proves nothing.
 - The name of the `.dat` file that appears, confirming the disk key.
 - The player's UUID as the server reports it, compared against
   `md5v3("pocket-auth-1-xuid:" + xuid)` computed from that player's real XUID. That is
