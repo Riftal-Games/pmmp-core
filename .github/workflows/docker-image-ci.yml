@@ -13,6 +13,13 @@ jobs:
       with:
         submodules: true #needed for build/php submodule
 
+    # Pure text logic, no image needed. Runs before the build so a broken
+    # stage-walk check fails in seconds instead of after the 20-40 minute
+    # build it would otherwise silently misjudge.
+    - name: Self-test the base-image stage-walk check
+      shell: bash
+      run: docker/check-ubuntu-base.selftest.sh
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
 
@@ -70,8 +77,19 @@ jobs:
           exit 1
         fi
 
-        ESCAPED_UBUNTU="$(printf '%s' "$EXPECTED_UBUNTU" | sed -e 's/[][\.^$*+?(){}|]/\\&/g')"
-        STRAGGLERS="$(grep -n '^FROM ' docker/Dockerfile | grep -vE "^[0-9]+:FROM[[:space:]]+ubuntu:${ESCAPED_UBUNTU}([[:space:]]|\$)" || true)"
+        # A stage that chains off an earlier one (`FROM build-pocketmine AS
+        # final`) names a stage declared earlier in this Dockerfile, not an
+        # external image, so it carries no Ubuntu version of its own to
+        # check: it inherits whatever its parent stage already had to pass.
+        # `--platform=...` is a flag on the FROM instruction, not part of
+        # the image name, and has to be stripped before comparing. Both
+        # kinds of line are still walked here, so a stage added or removed
+        # still moves TOTAL above.
+        #
+        # The walk itself lives in docker/check-ubuntu-base.sh, not inline,
+        # so docker/check-ubuntu-base.selftest.sh can run it against fixtures
+        # that exercise both branches: docker/Dockerfile alone never does.
+        STRAGGLERS="$(docker/check-ubuntu-base.sh docker/Dockerfile "$EXPECTED_UBUNTU")"
         if [ -n "$STRAGGLERS" ]; then
           echo "::error::stage(s) not on Ubuntu $EXPECTED_UBUNTU:"
           echo "$STRAGGLERS"
