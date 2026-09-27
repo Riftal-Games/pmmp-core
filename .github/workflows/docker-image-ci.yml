@@ -79,9 +79,10 @@ jobs:
     - name: Test if it persists plugin data
       run: echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp
 
-    # REACHABLE coverage. The three steps above prove the image builds and that
-    # the server boots and loads plugins, but none of them publishes a port, so
-    # none of them can tell a joinable container from an unjoinable one.
+    # REACHABLE coverage. The four steps above prove the image builds on the
+    # right base and that the server boots and loads plugins, but none of them
+    # publishes a port, so none of them can tell a joinable container from an
+    # unjoinable one.
     # Bedrock is RakNet over UDP: a TCP-only publish produces a container that
     # passes every check above and that no client can join. Only a real UDP
     # round trip catches that.
@@ -90,11 +91,11 @@ jobs:
       shell: bash
       env:
         # Advertised Bedrock protocol. Derived from ProtocolInfo::CURRENT_PROTOCOL
-        # in axolotl-pm/bedrock-protocol 59.0.1+bedrock-1.26.40, which
+        # in axolotl-pm/bedrock-protocol 62.0.0+bedrock-1.26.50, which
         # composer.lock pins. A protocol bump has to move this number
         # deliberately, because that is the value that otherwise diverges from
         # the client and from the proxy in silence.
-        EXPECTED_PROTOCOL: "2168"
+        EXPECTED_PROTOCOL: "2193"
         EXPECTED_MOTD: "riftal-reachable-probe"
         CONTAINER_NAME: "pm-reachable-smoke"
       run: |

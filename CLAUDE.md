@@ -2,7 +2,7 @@
 
 This is the RiftalGames server fork. It exists for one reason: to speak the current Minecraft Bedrock protocol. Nothing else belongs here.
 
-Base: `axolotl-pm/PocketMine-MP` 5.45.0, a community continuation of PMMP 5.44.3 after pmmp/PocketMine-MP was archived on 2026-07-09. LGPL-3.0. Our work lives on the `riftal` branch.
+Base: `axolotl-pm/PocketMine-MP` 5.49.1, a community continuation of PMMP 5.44.3 after pmmp/PocketMine-MP was archived on 2026-07-09. LGPL-3.0. Our work lives on the `riftal` branch.
 
 ## The only rule that matters
 
@@ -41,7 +41,7 @@ Working-branch names follow PMMP's own conventions, per `CONTRIBUTING.md`. Our m
 
 | Branch | Role |
 |---|---|
-| `riftal` | Our mainline. Default on `origin`. Currently at tag `5.45.0`. |
+| `riftal` | Our mainline. Default on `origin`. Merged up to upstream `5.49.1`, with our fork's files on top of it. |
 | `stable` | Read-only mirror of `upstream/stable`. It is how we see how far upstream has moved. Never commit to it. |
 | `bedrock-<version>` | Protocol work. Cut from `riftal`, merged back into it. |
 | `feat/<name>` | Feature work, which here means build tooling and deployment config. Game logic is forbidden, so there is little else it can be. |
@@ -59,22 +59,18 @@ Protocol changes ship as a new **minor** version, never a patch. PMMP's rule, an
 
 ## Protocol position
 
-Verified 2026-08-26 by reading `ProtocolInfo.php` at each ref in `axolotl-pm/BedrockProtocol`.
+Verified 2026-09-27 by reading `ProtocolInfo.php` at each ref in `axolotl-pm/BedrockProtocol`.
 
 | Bedrock | Protocol | Where |
 |---|---|---|
-| 1.26.40 | 2168 | this build, `riftal`, protocol lib 59.0.1 |
-| 1.26.44 | 2168 | `upstream/stable`, protocol lib 60.0.0, tags 5.46.0 and 5.46.1 |
-| 1.26.45 | 2169 | `upstream/bedrock-1.26.45`, unmerged, dev-pinned |
-| 1.26.50 | 2192 | `upstream/bedrock-1.26.50`, unmerged. **Preview only, not a target.** |
+| 1.26.40 | 2168 | upstream 5.45.0, protocol lib 59.0.1 |
+| 1.26.44 | 2168 | upstream 5.46.0 and 5.46.1, protocol lib 60.0.0 |
+| 1.26.45 | 2169 | upstream 5.47.0 carried in 5.48.0, protocol lib 61.0.0 |
+| 1.26.50 | 2193 | this build, `riftal`, upstream 5.49.1, protocol lib 62.0.0 |
 
 PMMP's final release 5.44.3 was Bedrock 1.26.30, protocol 1001.
 
-Two things follow.
-
-**The protocol number is unchanged from 1.26.40 to 1.26.44.** Catching up to upstream `stable` is a rebase and a block and item data refresh, not packet work. Same protocol does not mean same data, so the boot test still decides whether it worked.
-
-**26.45 is the first real break**, 2168 to 2169, and it is rolling out per platform, so players are split across both right now. Our single-protocol rule means whichever we serve locks out the other half until they update. That is a decision for Nasir, not a session.
+2168 to 2169 is the first break a client can feel. A 2169 client is refused at `InitialConnection-13` by a 2168 server, which is what happened to Nasir on 2026-09-13 and what moved this fork to 26.45. 26.45 rolled out per platform, so serving 2169 shuts out anyone whose platform is still on 26.44 until it updates. Nasir made that call; see `../docs/decision-log.md`.
 
 Confirm the live number before acting on it. Read `CURRENT_PROTOCOL` and `MINECRAFT_VERSION_NETWORK` from `vendor/axolotl-pm/bedrock-protocol/src/ProtocolInfo.php` for what this build actually speaks. `vendor/` is produced inside the build container, so on a fresh checkout it does not exist on the host and the pinned `axolotl-pm/bedrock-protocol` version in `composer.json` is the fallback source of truth.
 
@@ -104,9 +100,8 @@ Boot test before every tag: start the container, join with a real Bedrock client
 
 ### Known gaps
 
-- `build/php` is a submodule and is **not initialized**. The first build stage copies `build/php/compile.sh`, so the image build fails immediately until `git submodule update --init --recursive` is run.
-- The Dockerfile inherits `ubuntu:22.04` from upstream. Our base image is `ubuntu:24.04`. This needs changing here, and it counts as build tooling under the minimal-diff rule, so it is an acceptable change.
-- `build/php` is pinned to a commit of the archived `pmmp/php-build-scripts`. Whether it builds the extension versions `axolotl-pm` 5.45.0 expects is unverified. Find out on the first build.
+- `build/php` is a submodule and a fresh clone leaves it empty. The first build stage copies `build/php/compile.sh`, so the image build fails immediately until `git submodule update --init --recursive` is run.
+- `build/php` is pinned to a commit of the archived `pmmp/php-build-scripts`. It builds the extension versions `axolotl-pm` 5.49.1 expects; 5.45.0 through 5.49.1 left the pin alone.
 - Four shell scripts show as modified, mode 100755 to 100644, from a Windows checkout dropping the exec bit. `git config core.filemode false` clears it.
 
 ## Communication style
