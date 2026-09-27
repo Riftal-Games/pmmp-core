@@ -67,13 +67,10 @@ def parse_pong(data: bytes, expect_ping_time: int) -> str:
     if len(data) < 35:
         raise PongError(f"reply is only {len(data)} bytes, too short to be an unconnected pong")
 
-    packet_id = data[0]
-    if packet_id != ID_UNCONNECTED_PONG:
-        raise PongError(
-            f"reply packet id is 0x{packet_id:02x}, expected 0x{ID_UNCONNECTED_PONG:02x} "
-            "(ID_UNCONNECTED_PONG)"
-        )
-
+    # ping_once only calls parse_pong once it has already matched data[0]
+    # against ID_UNCONNECTED_PONG, so a repeat of that check here can never
+    # fail; anything with the wrong id surfaces as a socket.timeout instead,
+    # never reaching this function.
     ping_time = struct.unpack_from(">q", data, 1)[0]
     if ping_time != expect_ping_time:
         raise PongError(

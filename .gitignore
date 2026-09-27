@@ -48,6 +48,9 @@ test_data/*
 # Doxygen
 Documentation/*
 
+# Python, e.g. .github/workflows/raknet-ping.py run locally
+__pycache__/
+
 # PHPUnit
 /.phpunit.result.cache
 
