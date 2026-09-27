@@ -2,7 +2,7 @@
 
 This is the RiftalGames server fork. It exists for one reason: to speak the current Minecraft Bedrock protocol. Nothing else belongs here.
 
-Base: `axolotl-pm/PocketMine-MP` 5.48.0, a community continuation of PMMP 5.44.3 after pmmp/PocketMine-MP was archived on 2026-07-09. LGPL-3.0. Our work lives on the `riftal` branch.
+Base: `axolotl-pm/PocketMine-MP` 5.49.1, a community continuation of PMMP 5.44.3 after pmmp/PocketMine-MP was archived on 2026-07-09. LGPL-3.0. Our work lives on the `riftal` branch.
 
 ## The only rule that matters
 
@@ -41,7 +41,7 @@ Working-branch names follow PMMP's own conventions, per `CONTRIBUTING.md`. Our m
 
 | Branch | Role |
 |---|---|
-| `riftal` | Our mainline. Default on `origin`. Merged up to upstream `5.48.0`, with our fork's files on top of it. |
+| `riftal` | Our mainline. Default on `origin`. Merged up to upstream `5.49.1`, with our fork's files on top of it. |
 | `stable` | Read-only mirror of `upstream/stable`. It is how we see how far upstream has moved. Never commit to it. |
 | `bedrock-<version>` | Protocol work. Cut from `riftal`, merged back into it. |
 | `feat/<name>` | Feature work, which here means build tooling and deployment config. Game logic is forbidden, so there is little else it can be. |
@@ -59,7 +59,7 @@ Protocol changes ship as a new **minor** version, never a patch. PMMP's rule, an
 
 ## Protocol position
 
-Verified 2026-09-14 by reading `ProtocolInfo.php` at each ref in `axolotl-pm/BedrockProtocol`.
+Verified 2026-09-27 by reading `ProtocolInfo.php` at each ref in `axolotl-pm/BedrockProtocol`.
 
 | Bedrock | Protocol | Where |
 |---|---|---|
@@ -101,7 +101,7 @@ Boot test before every tag: start the container, join with a real Bedrock client
 ### Known gaps
 
 - `build/php` is a submodule and a fresh clone leaves it empty. The first build stage copies `build/php/compile.sh`, so the image build fails immediately until `git submodule update --init --recursive` is run.
-- `build/php` is pinned to a commit of the archived `pmmp/php-build-scripts`. It builds the extension versions `axolotl-pm` 5.48.0 expects; 5.45.0 through 5.48.0 left the pin alone.
+- `build/php` is pinned to a commit of the archived `pmmp/php-build-scripts`. It builds the extension versions `axolotl-pm` 5.49.1 expects; 5.45.0 through 5.49.1 left the pin alone.
 - Four shell scripts show as modified, mode 100755 to 100644, from a Windows checkout dropping the exec bit. `git config core.filemode false` clears it.
 
 ## Communication style
