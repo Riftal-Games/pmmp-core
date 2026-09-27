@@ -9,6 +9,10 @@ on:
     paths:
       - .github/workflows/copilot-setup-steps.yml
 
+# The self-hosted runner (#46) reuses one workspace across runs, so a file a
+# previous run's Docker mount left owned by a different uid blocks
+# actions/checkout's own cleanup on the next run (#49). The reset below is a
+# no-op on a fresh GitHub-hosted runner.
 jobs:
   # The job MUST be called `copilot-setup-steps` or it will not be picked up by Copilot.
   copilot-setup-steps:
@@ -18,6 +22,12 @@ jobs:
       contents: read
 
     steps:
+      - name: Reset workspace ownership from a previous run
+        run: |
+          if [ -e "${{ github.workspace }}" ]; then
+            sudo chown -R "$(id -u):$(id -g)" "${{ github.workspace }}"
+          fi
+
       - uses: actions/checkout@v7
 
       - name: Setup PHP

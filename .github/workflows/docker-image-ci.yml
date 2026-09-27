@@ -4,11 +4,21 @@ on:
   push:
   pull_request:
 
+# The self-hosted runner (#46) reuses one workspace across runs, so a file a
+# previous run's Docker mount left owned by a different uid blocks
+# actions/checkout's own cleanup on the next run (#49). The reset below is a
+# no-op on a fresh GitHub-hosted runner.
 jobs:
   build:
     runs-on: ubuntu-22.04
 
     steps:
+    - name: Reset workspace ownership from a previous run
+      run: |
+        if [ -e "${{ github.workspace }}" ]; then
+          sudo chown -R "$(id -u):$(id -g)" "${{ github.workspace }}"
+        fi
+
     - uses: actions/checkout@v7
       with:
         submodules: true #needed for build/php submodule
@@ -19,7 +29,10 @@ jobs:
     - name: Create data directories
       run: |
         mkdir ./docker/test_data
-        sudo chown -R 1000:1000 ./docker/testsuite ./docker/test_data
+        # A fixed uid only ever matched the old GitHub-hosted runner's default
+        # account. On the self-hosted runner it has to be whoever is actually
+        # running this job, or the next checkout can't clean these up either.
+        sudo chown -R "$(id -u):$(id -g)" ./docker/testsuite ./docker/test_data
 
     - name: Build image for tag
       uses: docker/build-push-action@v7.3.0
