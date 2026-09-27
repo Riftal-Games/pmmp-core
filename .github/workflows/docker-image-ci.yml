@@ -19,7 +19,11 @@ jobs:
     - name: Create data directories
       run: |
         mkdir ./docker/test_data
-        sudo chown -R 1000:1000 ./docker/testsuite ./docker/test_data
+        # The self-hosted runner reuses this checkout across runs, so anything
+        # the containers below write into it has to stay owned by the account
+        # that will next need to delete it: whoever runs this step, not a
+        # fixed uid baked into the image.
+        sudo chown -R "$(id -u):$(id -g)" ./docker/testsuite ./docker/test_data
 
     - name: Build image for tag
       uses: docker/build-push-action@v7.3.0
@@ -72,12 +76,12 @@ jobs:
 
     - name: Test if it loads plugins
       run: |
-        echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/create-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp
+        echo stop | docker run --rm -i --user "$(id -u):$(id -g)" -v ./docker/test_data:/data -v ./docker/testsuite/create-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp
         test -f ./docker/test_data/plugin_data/data-test/create-data
         test "$(cat ./docker/test_data/plugin_data/data-test/create-data)" = "successful"
 
     - name: Test if it persists plugin data
-      run: echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp
+      run: echo stop | docker run --rm -i --user "$(id -u):$(id -g)" -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp
 
     # REACHABLE coverage. The three steps above prove the image builds and that
     # the server boots and loads plugins, but none of them publishes a port, so
