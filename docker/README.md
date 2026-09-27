@@ -96,6 +96,12 @@ The list of plugins should be given in the format `PluginOne:1.2.3 PluginTwo:4.5
 ## Advanced usage: Passing args to PocketMine-MP.phar inside the container
 The `POCKETMINE_ARGS` environment variable will be passed to `PocketMine-MP.phar` when run.
 
+## Colour output
+`--enable-ansi` is passed only when the container's stdout is an actual TTY, for
+example `docker run -it`, so a captured log from a non-interactive run (CI, `docker
+logs`) stays free of colour and title-update escape sequences. Set `POCKETMINE_ANSI=1`
+or `POCKETMINE_ANSI=0` to override the detection in either direction.
+
 ## Building this image
 The Dockerfile requires a build-arg `GIT_HASH` to fill the git hash metadata when building `PocketMine-MP.phar`.
 This ensures that `/version`, crash reports, logs etc. report the correct server version.

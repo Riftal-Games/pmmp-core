@@ -33,4 +33,14 @@ fi
 # Run the server
 cd /opt/pocketmine
 read -ra pm_args <<<"$POCKETMINE_ARGS"
-exec php PocketMine-MP.phar --no-wizard --enable-ansi --data=/data --plugins=/plugins "${pm_args[@]}"
+
+# ANSI colour codes and OSC title updates are unreadable noise in a captured
+# CI log and break substring greps on it. Default to the actual TTY state so
+# `docker run -it` keeps colour and everything else gets a plain log, and let
+# POCKETMINE_ANSI override that for cases the TTY check gets wrong.
+ansi_args=()
+if [ "${POCKETMINE_ANSI:-auto}" = "1" ] || { [ "${POCKETMINE_ANSI:-auto}" = "auto" ] && [ -t 1 ]; }; then
+	ansi_args=(--enable-ansi)
+fi
+
+exec php PocketMine-MP.phar --no-wizard "${ansi_args[@]}" --data=/data --plugins=/plugins "${pm_args[@]}"
