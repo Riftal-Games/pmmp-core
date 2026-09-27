@@ -9,6 +9,17 @@ jobs:
     runs-on: [self-hosted, linux, riftal]
 
     steps:
+    # This runner's workspace persists between runs. A run from before the
+    # --user fix below existed can still have left docker/test_data behind
+    # under a uid this account can't remove, which fails checkout's own
+    # cleanup before any step of this job gets to run. A privileged
+    # container can remove it regardless of who wrote it.
+    - name: Remove any leftover test data from a previous run
+      run: |
+        if [ -e "${{ github.workspace }}/docker/test_data" ]; then
+          docker run --rm -v "${{ github.workspace }}:/workspace" alpine rm -rf /workspace/docker/test_data
+        fi
+
     - uses: actions/checkout@v7
       with:
         submodules: true #needed for build/php submodule
