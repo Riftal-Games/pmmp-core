@@ -13,6 +13,14 @@ Riftal-Games/riftal-pm#7.
 Nobody in this workspace has watched a real login through a WaterdogPE proxy. No proxy
 image exists, and nothing here claims a client can join.
 
+**Re-confirmed for Riftal-Games/pmmp-core#43, 2026-09-27.** The derivation document this
+starts from was re-checked against `axolotl-pm/BedrockProtocol` `0e13c077d1060ae9e293908eff81fbef600ead5c`
+(version `62.0.0+bedrock-1.26.50`, one minor past the `61.0.0+bedrock-1.26.45` issue #43
+names, because PR #45 moved the pin further the same day) and this fork's `src/` after PR #45
+rebased it onto upstream 5.49.1. Every claim in this document still holds; the fork's own
+line numbers moved and are corrected below. See
+[What is pinned to what](#what-is-pinned-to-what).
+
 ## What this starts from
 
 Three results from the derivation document, restated as conclusions. How each was
@@ -26,7 +34,7 @@ established is there, not here.
   ([Measured, not read](player-identity-proxied-vs-direct.md#measured-not-read-the-two-uuid-derivations-agree)).
 - **The XUID does not survive the proxy.** A proxied login arrives as
   `AuthenticationType::SELF_SIGNED`, and the fork hardcodes `$xuid = ""` on that branch
-  (`src/network/mcpe/handler/LoginPacketHandler.php:120`). WaterdogPE does send the real
+  (`src/network/mcpe/handler/LoginPacketHandler.php:121`). WaterdogPE does send the real
   XUID, in the `xid` claim. The fork never reads it.
 - **Every empty XUID derives one UUID.** `md5v3("pocket-auth-1-xuid:")` is
   `13cec93e-ba60-30df-9f67-b97138b8516d`, the single value
@@ -41,9 +49,9 @@ borrowed from `riftal-infra/docs/waterdogpe-protocol-2168.md:26-167`: tier 1 is 
 in source and read at a pinned commit, tier 2 is present in a downloadable checksummed
 artifact, tier 3 is observed carrying a real client.
 
-One further label is defined in that same section, the table row at
-`docs/player-identity-proxied-vs-direct.md:79`, and is restated here because this is the
-document that uses it:
+One further label is defined in that same section, the table row in
+[What "tier" means here](player-identity-proxied-vs-direct.md#what-tier-means-here),
+and is restated here because this is the document that uses it:
 
 | Label | Means |
 |---|---|
@@ -62,16 +70,22 @@ Every source cited below, with the commit it was read at.
 
 | Thing | Pinned at |
 |---|---|
-| This fork | `riftal` head `1e4d7de99c990aacfc2414b20ac4461ac8755198` |
-| `axolotl-pm/BedrockProtocol` | `7528264597919647eb11bb6a2bfe08b75430907f`, from `composer.lock:152` |
-| `netresearch/jsonmapper` | v6.0.0, `31226dd465e3e38f5a8f66ef1393cd8daad248dd`, from `composer.lock:259` |
+| This fork | `riftal` head `5868fd8dc5e4b3d2ecb1c95a7e1d2557eb029acd` (PR #45, upstream 5.49.1) |
+| `axolotl-pm/BedrockProtocol` | `0e13c077d1060ae9e293908eff81fbef600ead5c`, from `composer.lock` at 62.0.0+bedrock-1.26.50 |
+| `netresearch/jsonmapper` | v6.0.0, `31226dd465e3e38f5a8f66ef1393cd8daad248dd`, from `composer.lock:259` at 5.45.0 |
 | WaterdogPE | `master` head `23c834e16a9a0a7cb2aa504b6ae28b358a6892c4`, 2026-09-03T21:38:08Z |
 | CloudburstMC Protocol | `3.0` commit `db36d289968a1d07d6591f0d54426cc058b227c0`, 2026-08-24T11:39:57Z |
 
-The fork's line numbers hold at `riftal` head `d2b9bbc13` too: nothing outside `docs/`
-differs between those two commits. The two upstream refs are moving branches, so both are
-cited as commits rather than as branch names, and how the Cloudburst commit is tied to
-WaterdogPE's own dependency pin is in
+The fork and protocol-library rows were re-read for pmmp-core#43, 2026-09-27; they were
+`1e4d7de99c990aacfc2414b20ac4461ac8755198` and
+`7528264597919647eb11bb6a2bfe08b75430907f` (5.45.0, protocol lib 59.0.1) when this
+document was first written, and the fork's line numbers below are corrected against the
+new pin: PR #45 rebased `src/` onto upstream 5.49.1, so **the earlier claim that the
+fork's line numbers held unchanged between `1e4d7de99` and `d2b9bbc13` no longer extends
+past `5868fd8dc5`.** `netresearch/jsonmapper`, WaterdogPE and CloudburstMC were not
+re-read for #43. The two upstream refs are moving branches, so both are cited as commits
+rather than as branch names, and how the Cloudburst commit is tied to WaterdogPE's own
+dependency pin is in
 [What is pinned to what](player-identity-proxied-vs-direct.md#what-is-pinned-to-what).
 
 ## What actually keys per-player state today
@@ -89,7 +103,7 @@ private function getPlayerDataPath(string $username) : string{
 
 `src/player/DatFilePlayerDataProvider.php:50-52`. Load and save both go through it
 (`:65`, `:95`), and `Server::getOfflinePlayerData` / `saveOfflinePlayerData` at
-`src/Server.php:527` and `:539` take a name and nothing else. The lookup on login is
+`src/Server.php:528` and `:540` take a name and nothing else. The lookup on login is
 `$this->server->getOfflinePlayerData($this->info->getUsername())`,
 `src/network/mcpe/NetworkSession.php:974`.
 
@@ -97,7 +111,7 @@ There is no database path in this fork at all. Whatever M1 builds will be the fi
 
 The XUID is stored, but as a *value inside* the name-keyed file, not as a key:
 `Player::TAG_LAST_KNOWN_XUID`, declared at `src/player/Player.php:207` and written at
-`:2484` from `$this->xuid`, which is itself `""` for any non-`XboxLivePlayerInfo`
+`:2494` from `$this->xuid`, which is itself `""` for any non-`XboxLivePlayerInfo`
 session (`src/player/Player.php:335`).
 
 The username is not quite topology-invariant, and the exception is a config flag.
@@ -213,18 +227,18 @@ turning it on would not help today, because those fields are unreachable from th
 fork:
 
 - The fork maps client data onto `ClientData`
-  (`LoginPacketHandler.php:290`), a class with a fixed set of declared properties.
+  (`LoginPacketHandler.php:293`), a class with a fixed set of declared properties.
   None of them is a `Waterdog_*` field.
 - Unknown keys go to `warnUndefinedJsonPropertyHandler`
-  (`LoginPacketHandler.php:335-345`), a `: void` closure. JsonMapper only stores an
+  (`LoginPacketHandler.php:338-348`), a `: void` closure. JsonMapper only stores an
   unknown key if that handler *returns a string* to remap it to
   (`JsonMapper.php:185-193` at the pinned SHA); returning nothing means the value is
   dropped.
 - `PlayerInfo::getExtraData()` is populated from `(array) $clientData`
-  (`LoginPacketHandler.php:167`, `:175`), so a dropped key is not there either.
+  (`LoginPacketHandler.php:170`, `:178`), so a dropped key is not there either.
 
 So a plugin cannot read `Waterdog_XUID` from `PlayerInfo`. The extras would also emit a
-warning per unknown key, and `LoginPacketHandler.php:338-343` throws
+warning per unknown key, and `LoginPacketHandler.php:341-346` throws
 `PacketHandlingException` after ten of them. Four extras is under that limit, so the
 result is log noise rather than a failed login. That last sentence is a code read, not
 an observation.
@@ -281,10 +295,10 @@ three values should say what the remaining two cannot do rather than leave the r
 notice. Weigh it as a proposal, and weigh A and B as findings.
 
 **A. Key on the derived UUID.** *From the evidence.* Survives the proxy arriving
-(`LoginPacketHandler.php:118` against `ChainValidationResult.java:96`), survives a
+(`LoginPacketHandler.php:119` against `ChainValidationResult.java:96`), survives a
 gamertag change, available on every path the fork supports. Costs: it is forgeable on a
 directly reachable offline-mode downstream because `leguuid` is unverified on the
-self-signed branch (`LoginPacketHandler.php:115-118`), so it depends on the
+self-signed branch (`LoginPacketHandler.php:116-119`), so it depends on the
 proxy-only-entry-point rule being enforced rather than merely intended, and it is
 meaningless for players who were never Xbox-authenticated.
 
@@ -310,16 +324,13 @@ All three are Nasir's call, and the choice belongs in an ADR under
 
 ## Method
 
-The fork's paths were read at the tree, at `riftal` head `1e4d7de9`. Upstream paths
-were read through `gh api` against `WaterdogPE/WaterdogPE`, `CloudburstMC/Protocol`,
-`axolotl-pm/BedrockProtocol` and `cweiske/jsonmapper`, each at the commit in the table
-above. No claim rests on a README, a config comment or a changelog. Where a claim rests
-on reading code rather than observing behaviour, it says so.
-
-The one measurement is the UUID equality, run on 2026-09-07 as PHP 8.2 in a throwaway
-container against Java 21 on the host, with a negative control. Its inputs, its output
-and its independent re-run are recorded in the derivation document, which is the primary
-record for it; this document uses the result.
+The fork's paths, the upstream reads against `WaterdogPE/WaterdogPE`,
+`CloudburstMC/Protocol` and `axolotl-pm/BedrockProtocol`, and the one measurement are
+read as described in
+[Method](player-identity-proxied-vs-direct.md#method); this document does not repeat
+that account. Its own addition to the sources in that account is
+`cweiske/jsonmapper`, read through `gh api` at the commit in the table above, not
+re-read for #43.
 
 One caution for anyone extending this. A config option existing is not the same as the
 option working. `use_login_extras` exists on the proxy and is described in this
@@ -331,26 +342,12 @@ field being declared in a model is not the same as the field being read.
 
 ## What would settle what is still open
 
-Tier 3, an observed proxied login, needs a proxy image, which does not exist
-(riftal-infra#2).
+The proxy-image gap, the `debug.level` setup it needs and the first two log lines to
+read are in
+[What would settle what is still open](player-identity-proxied-vs-direct.md#what-would-settle-what-is-still-open);
+this document does not repeat them. Two more settle what this document adds on top of
+that:
 
-**Set `debug.level` above 1 before running it.** The default is `1`
-(`resources/pocketmine.yml:86-88`, whose own comment is "If > 1, it will show debug
-messages in the console"), and the first line below is `$this->logger->debug`, so at the
-default it never appears. A run at default level produces a log missing it for a reason
-that has nothing to do with identity. That matters most for the second bullet, which is
-an argument from absence and is only sound once a debug line that *did* appear proves
-the channel is reaching the log at all.
-
-When a proxy exists, the specific things to read out of the downstream log are:
-
-- `Xbox Live authenticated: NO` at `NetworkSession.php:935`, confirming the proxied
-  session takes the self-signed path. **Debug level.**
-- The absence of `Discarding unexpected XUID for non-authenticated player` at `:931`,
-  confirming the fork built a plain `PlayerInfo` rather than an `XboxLivePlayerInfo`.
-  That one is `warning`, so it would appear at default level, but read it only
-  alongside a debug line that did appear. Absence in a log you have not shown to be
-  carrying that channel proves nothing.
 - The name of the `.dat` file that appears, confirming the disk key.
 - The player's UUID as the server reports it, compared against
   `md5v3("pocket-auth-1-xuid:" + xuid)` computed from that player's real XUID. That is

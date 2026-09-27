@@ -4,9 +4,9 @@
 
 name: Trigger branch sync
 
+#This fork never configured the RestrictedActions app credentials this dispatch needs,
+#so a cron trigger here would only ever fail. See pmmp-core#7.
 on:
-  schedule:
-    - cron: "0 21 * * *" #once per day so we don't spam merge commits on busy days
   workflow_dispatch: #for testing
 
 jobs:
