@@ -49,9 +49,9 @@ borrowed from `riftal-infra/docs/waterdogpe-protocol-2168.md:26-167`: tier 1 is 
 in source and read at a pinned commit, tier 2 is present in a downloadable checksummed
 artifact, tier 3 is observed carrying a real client.
 
-One further label is defined in that same section, the table row at
-`docs/player-identity-proxied-vs-direct.md:79`, and is restated here because this is the
-document that uses it:
+One further label is defined in that same section, the table row in
+[What "tier" means here](player-identity-proxied-vs-direct.md#what-tier-means-here),
+and is restated here because this is the document that uses it:
 
 | Label | Means |
 |---|---|
