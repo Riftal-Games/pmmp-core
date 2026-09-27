@@ -13,6 +13,20 @@ Riftal-Games/pmmp-core#34.
 
 It changes no code. It records what is true and what is still unproven.
 
+**Re-confirmed for Riftal-Games/pmmp-core#43, 2026-09-27, against `axolotl-pm/BedrockProtocol`
+`0e13c077d1060ae9e293908eff81fbef600ead5c` (version `62.0.0+bedrock-1.26.50`) and against this
+fork's `src/` after PR #45 rebased it onto upstream `5.49.1`.** Issue #43 as filed asked for
+`61.0.0+bedrock-1.26.45` at `7528264597919647eb11bb6a2bfe08b75430907f`; PR #45 superseded that
+pin the same day the issue was worked, so the check below is against the pin actually on
+`riftal`, one minor ahead of what the issue names. All four load-bearing claims — proxied
+login is `AuthenticationType::SELF_SIGNED`, the UUID travels in `leguuid`, the real XUID
+travels in `xid` and this fork discards it, and `$xuid = ""` is hardcoded on the self-signed
+branch — hold unchanged at the new protocol pin. The fork's own line numbers shifted (upstream
+inserted a client-data parse and an empty-name fallback ahead of the cited code) and are
+corrected throughout this document; no cited claim needed retraction. See
+[What is pinned to what](#what-is-pinned-to-what) for the updated commits and
+[Method](#method) for what changed and what did not.
+
 ## Short answer
 
 **The UUID is the same either way. The XUID is not.**
@@ -37,7 +51,7 @@ boundary, stated again there.
 
 The XUID does not survive the proxy. A proxied login arrives as
 `AuthenticationType::SELF_SIGNED`, and this fork hardcodes `$xuid = ""` on that branch
-(`src/network/mcpe/handler/LoginPacketHandler.php:120`). WaterdogPE does send the real
+(`src/network/mcpe/handler/LoginPacketHandler.php:121`). WaterdogPE does send the real
 XUID, in the `xid` claim, deliberately
 (`HandshakeUtils.java:107-108`). The fork never reads it. So the same person has a real
 XUID direct and an empty XUID proxied.
@@ -99,10 +113,16 @@ carry them say so in their own words.
 
 | Thing | Pinned at |
 |---|---|
-| This fork | `riftal` head `1e4d7de99c990aacfc2414b20ac4461ac8755198` |
-| `axolotl-pm/BedrockProtocol` | `7528264597919647eb11bb6a2bfe08b75430907f`, from `composer.lock:152` at 5.45.0 |
+| This fork | `riftal` head `5868fd8dc5e4b3d2ecb1c95a7e1d2557eb029acd` (PR #45, upstream 5.49.1) |
+| `axolotl-pm/BedrockProtocol` | `0e13c077d1060ae9e293908eff81fbef600ead5c`, from `composer.lock` at 62.0.0+bedrock-1.26.50 |
 | WaterdogPE | `master` head `23c834e16a9a0a7cb2aa504b6ae28b358a6892c4`, 2026-09-03T21:38:08Z |
 | CloudburstMC Protocol | `3.0` commit `db36d289968a1d07d6591f0d54426cc058b227c0`, 2026-08-24T11:39:57Z |
+
+The fork and protocol-library rows above were re-read for pmmp-core#43, 2026-09-27; they
+were `1e4d7de99c990aacfc2414b20ac4461ac8755198` and
+`7528264597919647eb11bb6a2bfe08b75430907f` (5.45.0, protocol lib 59.0.1) when this document
+was first written. The WaterdogPE and CloudburstMC rows were not re-read for #43 and still
+reflect 2026-09-07.
 
 The two upstream refs are moving branches, so both are cited as commits rather than as
 branch names. The Cloudburst commit is not a guess: WaterdogPE's `gradle/libs.versions.toml:3` at its
@@ -119,11 +139,11 @@ This fork is on the 1.26 login format. The old three-link certificate chain with
 is a single `authInfoJson` carrying an `AuthenticationType` and a `Token`
 (`AuthenticationInfo.php` in the pinned protocol package), and
 `LoginPacketHandler::handleLogin` branches on that type at
-`src/network/mcpe/handler/LoginPacketHandler.php:87` and `:107`.
+`src/network/mcpe/handler/LoginPacketHandler.php:88` and `:108`.
 
 `AuthenticationType` has three values, `FULL = 0`, `GUEST = 1`, `SELF_SIGNED = 2`. The
 fork handles `FULL` and `SELF_SIGNED` and throws on anything else, including `GUEST`
-(`LoginPacketHandler.php:134`).
+(`LoginPacketHandler.php:139`).
 
 ### FULL, which is what a direct connection from a signed-in player uses
 
@@ -133,7 +153,7 @@ $username = $claims->xname;
 $xuid = $claims->xid;
 ```
 
-`LoginPacketHandler.php:96-98`. The derivation, at `:76-82`:
+`LoginPacketHandler.php:97-99`. The derivation, at `:76-82`:
 
 ```php
 private static function calculateUuidFromXuid(string $xuid) : UuidInterface{
@@ -149,7 +169,7 @@ That is a UUIDv3, MD5 over the literal string `pocket-auth-1-xuid:` concatenated
 the XUID. Deterministic from the XUID and from nothing else. Not from the username.
 
 The token is then verified against a Mojang OpenID key at
-`LoginPacketHandler.php:303-314`, and `ProcessOpenIdLoginTask.php:78` sets
+`LoginPacketHandler.php:306-318`, and `ProcessOpenIdLoginTask.php:78` sets
 `authenticated = true` only if that verification passed.
 
 **`xbox-auth=false` does not skip this.** `NetworkSession::setAuthenticationStatus` at
@@ -168,7 +188,7 @@ $username = $claims->xname;
 $xuid = "";
 ```
 
-`LoginPacketHandler.php:118-120`. Three things follow.
+`LoginPacketHandler.php:119-121`. Three things follow.
 
 `leguuid` is taken from the token verbatim. The token is self-signed, so this value is
 whatever the sender chose. The server does not derive it and cannot check it.
@@ -176,12 +196,23 @@ whatever the sender chose. The server does not derive it and cannot check it.
 `$xuid = ""` is a literal. `SelfSignedJwtBody` in the pinned protocol package *does*
 declare an `xid` property, and its own comment says these fields "seem to be present as
 empty strings in a self-signed token for some reason". Nothing in `src/` reads it:
-`grep -rn -- '->xid' src/` returns exactly two lines, `LoginPacketHandler.php:96` and
-`:98`, both on the `FULL` branch. The declaration of `xid` lives in the vendored
+`grep -rn -- '->xid' src/` returns exactly two lines, `LoginPacketHandler.php:97` and
+`:99`, both on the `FULL` branch. The declaration of `xid` lives in the vendored
 protocol package, not in `src/`.
 
-`grep -rn 'leguuid' src/` returns three lines, all in the same branch: `:115` is an
-`Uuid::isValid` guard, `:116` an exception message, and `:118` the only read.
+`grep -rn 'leguuid' src/` returns three lines, all in the same branch: `:116` is an
+`Uuid::isValid` guard, `:117` an exception message, and `:119` the only read.
+
+**One thing changed between the two pins and is worth recording here even though it does
+not touch a claim above.** Between 5.45.0 and 5.49.1, upstream added a fallback right
+after the `leguuid` read: if `$claims->xname` (the username) is empty, the fork now takes
+`$clientData->ThirdPartyName` instead
+(`LoginPacketHandler.php:128-130`, its own comment reading "workaround for player name
+being empty in offline mode as of 1.26.40+"). WaterdogPE always sends a non-empty
+`xname` (`HandshakeUtils.java:99`, `dataChain.addProperty("xname", displayName)`), so
+this does not change anything about a proxied login's username, UUID or XUID. It is
+recorded because it is new code sitting inside the exact block this document cites, not
+because it changes a conclusion.
 
 `ProcessSelfSignedLoginTask.php:93` passes a hard-coded `false` as the `authenticated`
 argument to the callback. A self-signed login is never authenticated on this fork, by
@@ -245,7 +276,7 @@ dataChain.addProperty("xid", xuid);
 
 Both comments are upstream's. The second one is the whole point: WaterdogPE
 went out of its way to forward the XUID in a field the format does not normally carry
-it in, and this fork discards it at `LoginPacketHandler.php:120`.
+it in, and this fork discards it at `LoginPacketHandler.php:121`.
 
 The `aud` claim exists because PMMP requires it: `AuthJwtHelper.php:92-94` rejects any
 token whose `aud` is not `api://auth-minecraft-services/multiplayer`, and
@@ -344,14 +375,25 @@ in Riftal-Games/pmmp-core#34.
 
 ## Method
 
-The fork's paths were read at the tree, at `riftal` head `1e4d7de9`. Upstream paths
-were read through `gh api` against `WaterdogPE/WaterdogPE`, `CloudburstMC/Protocol` and
-`axolotl-pm/BedrockProtocol`, each at the commit in the table above. No claim rests on a
-README, a config comment or a changelog. Where a claim rests on reading code rather than
-observing behaviour, it says so.
+The fork's paths were originally read at the tree, at `riftal` head `1e4d7de9`, and
+re-read for pmmp-core#43 at `riftal` head `5868fd8dc5`, the merge of PR #45. Upstream
+paths were read through `gh api` against `WaterdogPE/WaterdogPE`, `CloudburstMC/Protocol`
+and `axolotl-pm/BedrockProtocol`, each at the commit in the table above; the #43 re-read
+covered the fork and `axolotl-pm/BedrockProtocol` rows only, not WaterdogPE or
+CloudburstMC. No claim rests on a README, a config comment or a changelog. Where a claim
+rests on reading code rather than observing behaviour, it says so.
+
+The re-read for #43 was a `git diff` of every cited file between upstream tags `5.45.0`
+and `5.49.1`, plus a fetch of `AuthenticationInfo.php`, `SelfSignedJwtBody.php` and
+`XboxAuthJwtBody.php` from `axolotl-pm/BedrockProtocol` at `0e13c077d`. Every citation in
+this document that changed line number is corrected in place; none of the four
+load-bearing claims changed. The one substantive code change found,
+`LoginPacketHandler.php:128-130`'s `ThirdPartyName` fallback, is recorded where it sits,
+in [SELF_SIGNED, which is what a proxied connection uses](#self_signed-which-is-what-a-proxied-connection-uses-and-also-an-unauthenticated-direct-one).
 
 The one measurement is the UUID equality, run on 2026-09-07 as PHP 8.2 in a throwaway
-container against Java 21 on the host, with a negative control.
+container against Java 21 on the host, with a negative control. It was not re-run for
+#43: nothing in the diff touches `calculateUuidFromXuid` or its inputs.
 
 One caution for anyone extending this. A field being declared in a model is not the
 same as the field being read. The `SelfSignedJwtBody` model in the protocol package
