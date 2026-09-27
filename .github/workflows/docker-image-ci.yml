@@ -68,6 +68,7 @@ jobs:
         echo "all $DECLARED stages pinned to Ubuntu $EXPECTED_UBUNTU"
 
     - name: Test if it runs the normal server properly
+      timeout-minutes: 10
       run: echo stop | docker run --rm -i -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp
 
     - name: Test if it loads plugins
