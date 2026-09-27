@@ -17,6 +17,14 @@ done
 DATA_DIR="$(pwd)/test_data"
 PLUGINS_DIR="$DATA_DIR/plugins"
 
+# Concurrent runs of this script on the same machine (the shared self-hosted
+# runners, unlike GitHub-hosted ones, are not isolated per job) would
+# otherwise all bind the same hardcoded 19132/19133 and fail with
+# "Failed to bind socket". The caller sets these per invocation; left unset,
+# they fall back to PocketMine-MP's own defaults.
+PM_PORT="${PM_PORT:-19132}"
+PM_PORT_V6="${PM_PORT_V6:-19133}"
+
 rm -rf "$DATA_DIR"
 rm PocketMine-MP.phar 2> /dev/null
 mkdir "$DATA_DIR"
@@ -47,7 +55,9 @@ echo -e "stop\n" | php PocketMine-MP.phar \
   --anonymous-statistics.enabled=0 \
   --settings.async-workers="$PM_WORKERS" \
   --settings.enable-dev-builds=1 \
-  --auto-report.enabled=0
+  --auto-report.enabled=0 \
+  --server-port="$PM_PORT" \
+  --server-portv6="$PM_PORT_V6"
 
 output=$(grep '\[TesterPlugin\]' "$DATA_DIR/server.log")
 if [ "$output" == "" ]; then
