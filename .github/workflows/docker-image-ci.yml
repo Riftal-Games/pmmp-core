@@ -71,6 +71,7 @@ jobs:
       run: echo stop | docker run --rm -i -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp
 
     - name: Test if it loads plugins
+      timeout-minutes: 10
       run: |
         echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/create-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp
         test -f ./docker/test_data/plugin_data/data-test/create-data
@@ -81,6 +82,7 @@ jobs:
     # Done and docker run still exits 0, so the step needs its own positive
     # evidence that the check actually happened, not just that nothing failed.
     - name: Test if it persists plugin data
+      timeout-minutes: 10
       run: |
         LOG="$(mktemp)"
         echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp | tee "$LOG"
