@@ -4,8 +4,8 @@
 
 name: Trigger Crowdin download
 
-#Schedule trigger removed: this fork has no RestrictedActions app credentials, so every
-#scheduled run fails before it can do anything. See pmmp-core#7.
+#This fork never configured the RestrictedActions app credentials this dispatch needs,
+#so a cron trigger here would only ever fail. See pmmp-core#7.
 on:
   workflow_dispatch: #for testing
 

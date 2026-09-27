@@ -1,6 +1,5 @@
 name: 'Clean up stale PRs'
-#Schedule trigger removed: meaningless at this repository's size and burns Actions
-#minutes for nothing. See pmmp-core#7.
+#A cron isn't worth the Actions minutes at this repo's PR volume. See pmmp-core#7.
 on:
   workflow_dispatch:
 
