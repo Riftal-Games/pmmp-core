@@ -14,14 +14,14 @@ on:
         default: 5
         type: number
       image:
-        description: 'Runner image to use'
-        default: 'ubuntu-22.04'
+        description: 'Runner labels to use, as a JSON array'
+        default: '["self-hosted", "linux", "riftal"]'
         type: string
 
 jobs:
   phpstan:
     name: PHPStan analysis
-    runs-on: ${{ inputs.image }}
+    runs-on: ${{ fromJson(inputs.image) }}
 
     strategy:
       fail-fast: false
@@ -54,7 +54,7 @@ jobs:
 
   phpunit:
     name: PHPUnit tests
-    runs-on: ${{ inputs.image }}
+    runs-on: ${{ fromJson(inputs.image) }}
     strategy:
       fail-fast: false
 
@@ -86,7 +86,7 @@ jobs:
 
   integration:
     name: Integration tests
-    runs-on: ${{ inputs.image }}
+    runs-on: ${{ fromJson(inputs.image) }}
     strategy:
       fail-fast: false
 
@@ -115,12 +115,28 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --no-dev --prefer-dist --no-interaction
 
+      # The shared self-hosted runners give every matrix entry in this run the
+      # same machine at once, unlike GitHub-hosted runners where each job got
+      # its own. tests/travis.sh binds a hardcoded 19132/19133 by default, so
+      # without this the 5 PHP versions collide on "Failed to bind socket".
+      # inputs.php (e.g. "8.3") is folded into the offset because
+      # GITHUB_RUN_ID alone is shared by every entry in this same matrix run.
       - name: Run integration tests
-        run: ./tests/travis.sh -t4
+        shell: bash
+        env:
+          PHP_VERSION: ${{ inputs.php }}
+        run: |
+          set -euo pipefail
+          PHP_NUM="${PHP_VERSION//./}"
+          BASE_PORT=$(( 20000 + ( (GITHUB_RUN_ID * 131 + PHP_NUM * 7) % 39000 ) ))
+          export PM_PORT="$BASE_PORT"
+          export PM_PORT_V6="$((BASE_PORT + 1))"
+          echo "using server-port=$PM_PORT server-portv6=$PM_PORT_V6"
+          ./tests/travis.sh -t4
 
   codegen:
     name: Generated Code consistency checks
-    runs-on: ${{ inputs.image }}
+    runs-on: ${{ fromJson(inputs.image) }}
     strategy:
       fail-fast: false
 

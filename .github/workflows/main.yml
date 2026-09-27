@@ -20,7 +20,7 @@ jobs:
 
   codestyle:
     name: Code Style checks
-    runs-on: ubuntu-22.04
+    runs-on: [self-hosted, linux, riftal]
     strategy:
       fail-fast: false
 
@@ -40,7 +40,7 @@ jobs:
 
   shellcheck:
     name: ShellCheck
-    runs-on: ubuntu-22.04
+    runs-on: [self-hosted, linux, riftal]
     strategy:
       fail-fast: false
 
@@ -49,10 +49,16 @@ jobs:
 
       - name: Run ShellCheck
         uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          # build/php is a vendored git submodule (pmmp/php-build-scripts),
+          # not ours to fix or annotate. tests/plugins/DevTools and
+          # examples/plugins/ExamplePlugin are submodules too but carry no
+          # shell scripts, so they never reach the scan either way.
+          ignore_paths: build/php
 
   translations:
     name: Translation checks
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, riftal]
 
     steps:
       - uses: actions/checkout@v7
