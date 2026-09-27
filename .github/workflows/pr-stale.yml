@@ -1,7 +1,8 @@
 name: 'Clean up stale PRs'
+#Schedule trigger removed: meaningless at this repository's size and burns Actions
+#minutes for nothing. See pmmp-core#7.
 on:
-  schedule:
-    - cron: '30 1 * * *'
+  workflow_dispatch:
 
 jobs:
   stale:

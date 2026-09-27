@@ -4,9 +4,9 @@
 
 name: Trigger Crowdin download
 
+#Schedule trigger removed: this fork has no RestrictedActions app credentials, so every
+#scheduled run fails before it can do anything. See pmmp-core#7.
 on:
-  schedule:
-    - cron: "0 21 * * *"
   workflow_dispatch: #for testing
 
 jobs:
