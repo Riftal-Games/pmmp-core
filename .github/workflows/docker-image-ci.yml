@@ -136,10 +136,12 @@ jobs:
 
         # Readiness is the server's own startFinished line
         # (resources/translations/eng.ini: 'Done ({%0}s)! For help, type "help"
-        # or "?"'), not a fixed sleep and not "the process is alive". ANSI is
-        # enabled by docker/start.sh, so strip it before matching. Written as two
-        # commands rather than a pipeline because `grep -q` exiting early would
-        # SIGPIPE the `sed` and `pipefail` would then read a match as a miss.
+        # or "?"'), not a fixed sleep and not "the process is alive". This run
+        # is `docker run -i` with no `-t`, so docker/start.sh leaves ANSI off
+        # by default; the strip below is a defensive no-op kept in case that
+        # ever changes. Written as two commands rather than a pipeline because
+        # `grep -q` exiting early would SIGPIPE the `sed` and `pipefail` would
+        # then read a match as a miss.
         READY=0
         for _ in $(seq 1 180); do
           sed 's/\x1b\[[0-9;]*m//g' "$LOG" > "$LOG.clean"
