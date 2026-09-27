@@ -70,8 +70,35 @@ jobs:
           exit 1
         fi
 
-        ESCAPED_UBUNTU="$(printf '%s' "$EXPECTED_UBUNTU" | sed -e 's/[][\.^$*+?(){}|]/\\&/g')"
-        STRAGGLERS="$(grep -n '^FROM ' docker/Dockerfile | grep -vE "^[0-9]+:FROM[[:space:]]+ubuntu:${ESCAPED_UBUNTU}([[:space:]]|\$)" || true)"
+        # A stage that chains off an earlier one (`FROM build-pocketmine AS
+        # final`) names a stage declared earlier in this Dockerfile, not an
+        # external image, so it carries no Ubuntu version of its own to
+        # check: it inherits whatever its parent stage already had to pass.
+        # `--platform=...` is a flag on the FROM instruction, not part of
+        # the image name, and has to be stripped before comparing. Both
+        # kinds of line are still walked here, so a stage added or removed
+        # still moves TOTAL above.
+        STRAGGLERS="$(awk -v expected="ubuntu:${EXPECTED_UBUNTU}" '
+          /^FROM / {
+            line = $0
+            sub(/^FROM[ \t]+/, "", line)
+            sub(/^--platform=[^ \t]+[ \t]+/, "", line)
+            n = split(line, parts, /[ \t]+/)
+            image = parts[1]
+            stagename = ""
+            for (i = 1; i <= n; i++) {
+              if (parts[i] == "AS" || parts[i] == "as") {
+                stagename = parts[i + 1]
+              }
+            }
+            if (!(image in stages) && image != expected) {
+              print NR ":" $0
+            }
+            if (stagename != "") {
+              stages[stagename] = 1
+            }
+          }
+        ' docker/Dockerfile)"
         if [ -n "$STRAGGLERS" ]; then
           echo "::error::stage(s) not on Ubuntu $EXPECTED_UBUNTU:"
           echo "$STRAGGLERS"
