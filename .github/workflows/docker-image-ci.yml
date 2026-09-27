@@ -20,6 +20,14 @@ jobs:
       shell: bash
       run: docker/check-ubuntu-base.selftest.sh
 
+    # Same reasoning: pure UDP loopback against a fake responder, no image
+    # needed, so a broken REACHABLE assertion fails in seconds rather than
+    # after the build, and rather than passing quietly because a real
+    # container happened to answer with the right bytes anyway.
+    - name: Self-test the RakNet REACHABLE check
+      shell: bash
+      run: python3 .github/workflows/raknet-ping.selftest.py
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
 
