@@ -21,6 +21,10 @@ on:
 permissions:
   contents: read #for user access check
 
+# The self-hosted runner (#46) reuses one workspace across runs, so a file a
+# previous run's Docker mount left owned by a different uid blocks
+# actions/checkout's own cleanup on the next run (#49). The reset below is a
+# no-op on a fresh GitHub-hosted runner.
 jobs:
   check-intent:
     name: Check release trigger
@@ -30,6 +34,12 @@ jobs:
       valid: ${{ steps.validate.outputs.DEV_BUILD == 'false' }}
 
     steps:
+      - name: Reset workspace ownership from a previous run
+        run: |
+          if [ -e "${{ github.workspace }}" ]; then
+            sudo chown -R "$(id -u):$(id -g)" "${{ github.workspace }}"
+          fi
+
       - uses: actions/checkout@v7
 
       - name: Check IS_DEVELOPMENT_BUILD flag
@@ -46,6 +56,12 @@ jobs:
     runs-on: [self-hosted, linux, riftal]
 
     steps:
+      - name: Reset workspace ownership from a previous run
+        run: |
+          if [ -e "${{ github.workspace }}" ]; then
+            sudo chown -R "$(id -u):$(id -g)" "${{ github.workspace }}"
+          fi
+
       - uses: actions/checkout@v7
 
       - name: Setup PHP
