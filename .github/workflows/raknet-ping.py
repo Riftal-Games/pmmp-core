@@ -124,12 +124,22 @@ def main() -> int:
     parser.add_argument("port", type=int)
     parser.add_argument(
         "--expect-motd",
-        help="exact value the MOTD field of the pong must carry",
+        help="exact value the MOTD field of the pong must carry "
+        "(required unless --skip-identity-checks is given)",
     )
     parser.add_argument(
         "--expect-protocol",
         type=int,
-        help="exact value the protocol field of the pong must carry",
+        help="exact value the protocol field of the pong must carry "
+        "(required unless --skip-identity-checks is given)",
+    )
+    parser.add_argument(
+        "--skip-identity-checks",
+        action="store_true",
+        help="allow --expect-motd and --expect-protocol to be omitted, "
+        "downgrading REACHABLE to a liveness ping with no identity "
+        "assertion. Never use this in CI; it exists for local debugging "
+        "against a server whose MOTD or protocol you do not know yet.",
     )
     parser.add_argument(
         "--attempt-timeout",
@@ -144,6 +154,29 @@ def main() -> int:
         help="seconds to keep retrying before giving up (default: 30)",
     )
     args = parser.parse_args()
+
+    if not args.skip_identity_checks:
+        missing = [
+            name
+            for name, value in (
+                ("--expect-motd", args.expect_motd),
+                ("--expect-protocol", args.expect_protocol),
+            )
+            if value is None
+        ]
+        if missing:
+            parser.error(
+                f"{' and '.join(missing)} required unless --skip-identity-checks "
+                "is given; a REACHABLE check with no expected identity only "
+                "proves something answered UDP, not that it is our server"
+            )
+    else:
+        print(
+            "WARNING: --skip-identity-checks set; MOTD and/or protocol are not "
+            "being asserted against an expected value. This is a liveness "
+            "ping, not a REACHABLE check, and must never run this way in CI.",
+            file=sys.stderr,
+        )
 
     address = (args.host, args.port)
     deadline = time.monotonic() + args.total_timeout
