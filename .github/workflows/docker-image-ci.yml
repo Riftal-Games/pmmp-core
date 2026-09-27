@@ -91,11 +91,11 @@ jobs:
       shell: bash
       env:
         # Advertised Bedrock protocol. Derived from ProtocolInfo::CURRENT_PROTOCOL
-        # in axolotl-pm/bedrock-protocol 61.0.0+bedrock-1.26.45, which
+        # in axolotl-pm/bedrock-protocol 62.0.0+bedrock-1.26.50, which
         # composer.lock pins. A protocol bump has to move this number
         # deliberately, because that is the value that otherwise diverges from
         # the client and from the proxy in silence.
-        EXPECTED_PROTOCOL: "2169"
+        EXPECTED_PROTOCOL: "2193"
         EXPECTED_MOTD: "riftal-reachable-probe"
         CONTAINER_NAME: "pm-reachable-smoke"
       run: |

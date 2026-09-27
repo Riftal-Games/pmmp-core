@@ -65,8 +65,8 @@ Verified 2026-09-14 by reading `ProtocolInfo.php` at each ref in `axolotl-pm/Bed
 |---|---|---|
 | 1.26.40 | 2168 | upstream 5.45.0, protocol lib 59.0.1 |
 | 1.26.44 | 2168 | upstream 5.46.0 and 5.46.1, protocol lib 60.0.0 |
-| 1.26.45 | 2169 | this build, `riftal`, upstream 5.47.0 carried in 5.48.0, protocol lib 61.0.0 |
-| 1.26.50 | 2192 | `upstream/bedrock-1.26.50`, unmerged and dev-pinned. **Preview only, not a target.** |
+| 1.26.45 | 2169 | upstream 5.47.0 carried in 5.48.0, protocol lib 61.0.0 |
+| 1.26.50 | 2193 | this build, `riftal`, upstream 5.49.1, protocol lib 62.0.0 |
 
 PMMP's final release 5.44.3 was Bedrock 1.26.30, protocol 1001.
 
