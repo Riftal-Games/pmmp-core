@@ -84,9 +84,10 @@ them, so that the two documents can be read against each other:
 | 2 | Present in a downloadable, checksummed artifact |
 | 3 | Observed carrying a real client |
 
-One label is added here that the 2168 document does not have, because this one needs it
-and having two vocabularies for evidence strength in a single document is how a third
-gets invented:
+One label is defined here that the 2168 document does not have. It is used by
+[the consequences document](player-identity-consequences-for-m1.md#evidence-vocabulary),
+not by this one, and having two vocabularies for evidence strength across the two
+documents is how a third gets invented:
 
 | Label | Means |
 |---|---|
