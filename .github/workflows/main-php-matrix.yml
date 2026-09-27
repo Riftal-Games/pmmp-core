@@ -14,14 +14,14 @@ on:
         default: 5
         type: number
       image:
-        description: 'Runner image to use'
-        default: 'ubuntu-22.04'
+        description: 'Runner labels to use, as a JSON array'
+        default: '["self-hosted", "linux", "riftal"]'
         type: string
 
 jobs:
   phpstan:
     name: PHPStan analysis
-    runs-on: ${{ inputs.image }}
+    runs-on: ${{ fromJson(inputs.image) }}
 
     strategy:
       fail-fast: false
@@ -54,7 +54,7 @@ jobs:
 
   phpunit:
     name: PHPUnit tests
-    runs-on: ${{ inputs.image }}
+    runs-on: ${{ fromJson(inputs.image) }}
     strategy:
       fail-fast: false
 
@@ -86,7 +86,7 @@ jobs:
 
   integration:
     name: Integration tests
-    runs-on: ${{ inputs.image }}
+    runs-on: ${{ fromJson(inputs.image) }}
     strategy:
       fail-fast: false
 
@@ -120,7 +120,7 @@ jobs:
 
   codegen:
     name: Generated Code consistency checks
-    runs-on: ${{ inputs.image }}
+    runs-on: ${{ fromJson(inputs.image) }}
     strategy:
       fail-fast: false
 

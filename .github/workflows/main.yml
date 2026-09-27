@@ -20,7 +20,7 @@ jobs:
 
   codestyle:
     name: Code Style checks
-    runs-on: ubuntu-22.04
+    runs-on: [self-hosted, linux, riftal]
     strategy:
       fail-fast: false
 
@@ -40,7 +40,7 @@ jobs:
 
   shellcheck:
     name: ShellCheck
-    runs-on: ubuntu-22.04
+    runs-on: [self-hosted, linux, riftal]
     strategy:
       fail-fast: false
 
@@ -52,7 +52,7 @@ jobs:
 
   translations:
     name: Translation checks
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, riftal]
 
     steps:
       - uses: actions/checkout@v7
