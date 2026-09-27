@@ -55,17 +55,29 @@ jobs:
         # Dockerfile is the only place their base can be read. A build stage on
         # a newer release than the runtime stage links the PHP binaries it
         # compiles against a glibc the runtime stage does not have.
-        DECLARED="$(grep -c '^FROM ubuntu:' docker/Dockerfile)"
-        if [ "$DECLARED" -lt 1 ]; then
-          echo "::error::no 'FROM ubuntu:' line found in docker/Dockerfile, this check is not testing anything"
+        #
+        # This has to walk every `FROM` line, not just the ones that already
+        # say `ubuntu:`. A stage rebased onto a different distro, a digest
+        # pin, or a build-arg image name stops matching a `FROM ubuntu:`
+        # filter and disappears from the check entirely instead of failing
+        # it. `EXPECTED_STAGES` is this Dockerfile's current stage count
+        # (build-php, build-pocketmine, runtime): bump it in the same change
+        # that adds or removes a stage.
+        EXPECTED_STAGES=3
+        TOTAL="$(grep -c '^FROM ' docker/Dockerfile)"
+        if [ "$TOTAL" -ne "$EXPECTED_STAGES" ]; then
+          echo "::error::docker/Dockerfile declares $TOTAL FROM line(s), expected $EXPECTED_STAGES; update EXPECTED_STAGES if a stage was added or removed"
           exit 1
         fi
-        STRAGGLERS="$(grep -n '^FROM ubuntu:' docker/Dockerfile | grep -v "^[0-9]\+:FROM ubuntu:$EXPECTED_UBUNTU\( \|$\)" || true)"
+
+        ESCAPED_UBUNTU="$(printf '%s' "$EXPECTED_UBUNTU" | sed -e 's/[][\.^$*+?(){}|]/\\&/g')"
+        STRAGGLERS="$(grep -n '^FROM ' docker/Dockerfile | grep -vE "^[0-9]+:FROM[[:space:]]+ubuntu:${ESCAPED_UBUNTU}([[:space:]]|\$)" || true)"
         if [ -n "$STRAGGLERS" ]; then
-          echo "::error::stage(s) not on Ubuntu $EXPECTED_UBUNTU: $STRAGGLERS"
+          echo "::error::stage(s) not on Ubuntu $EXPECTED_UBUNTU:"
+          echo "$STRAGGLERS"
           exit 1
         fi
-        echo "all $DECLARED stages pinned to Ubuntu $EXPECTED_UBUNTU"
+        echo "all $TOTAL stages pinned to Ubuntu $EXPECTED_UBUNTU"
 
     - name: Test if it runs the normal server properly
       timeout-minutes: 10
