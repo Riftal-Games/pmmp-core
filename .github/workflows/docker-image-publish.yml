@@ -20,8 +20,11 @@ jobs:
       packages: write
 
     steps:
+      # The image is pushed under the tag, so the tree built is the tag's. A
+      # dispatch otherwise checks out the ref it was started from.
       - uses: actions/checkout@v7
         with:
+          ref: refs/tags/${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.release }}
           submodules: true #needed for build/php submodule
 
       # A hand-released ref may never have run docker-image-ci.yml, so the
@@ -51,6 +54,18 @@ jobs:
             echo "Unsupported event type: ${{ github.event_name }}"
             exit 1
           fi
+
+      # github.sha is the dispatched ref's commit, not the tag's, so the hash
+      # baked into the phar comes from the tree actually checked out.
+      - name: Check the checked-out tree is the tag
+        id: tagged-commit
+        shell: bash
+        env:
+          TAG_NAME: ${{ steps.tag-name.outputs.TAG_NAME }}
+        run: |
+          SHA="$(.github/workflows/check-publish-ref.sh "$TAG_NAME")"
+          echo "building $TAG_NAME at $SHA"
+          echo SHA="$SHA" >> "$GITHUB_OUTPUT"
 
       - name: Parse version
         id: version
@@ -95,7 +110,7 @@ jobs:
           file: ${{ github.workspace }}/docker/Dockerfile
           tags: local-pocketmine-mp
           build-args: |
-            GIT_HASH=${{ github.sha }}
+            GIT_HASH=${{ steps.tagged-commit.outputs.SHA }}
 
       # Hard rule 7 fixes the base image for everything we build. Mirrors the
       # check in docker-image-ci.yml so a release built from a ref that never
