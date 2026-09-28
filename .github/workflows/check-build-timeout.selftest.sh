@@ -104,6 +104,32 @@ expect 1 under-with "$UNDER_WITH"
 expect 1 commented-out "$COMMENTED"
 expect 1 zero "${PRESENT/timeout-minutes: 55/timeout-minutes: 0}"
 expect 1 second-job-missing "$SECOND_JOB_MISSING"
+expect 1 end-of-line-comment "$(cat <<'EOF'
+jobs:
+  build:
+    steps:
+    - name: Build # timeout-minutes: 55
+      uses: docker/build-push-action@v7.3.0
+EOF
+)"
+expect 1 second-double-quoted-missing "$(cat <<'EOF'
+jobs:
+  build:
+    steps:
+    - timeout-minutes: 55
+      uses: docker/build-push-action@v7.3.0
+    - uses: "docker/build-push-action@v7.3.0"
+EOF
+)"
+expect 1 second-single-quoted-missing "$(cat <<'EOF'
+jobs:
+  build:
+    steps:
+    - timeout-minutes: 55
+      uses: docker/build-push-action@v7.3.0
+    - uses: 'docker/build-push-action@v7.3.0'
+EOF
+)"
 expect 1 no-build-step "$(cat <<'EOF'
 jobs:
   build:

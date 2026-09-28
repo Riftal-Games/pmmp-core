@@ -21,7 +21,7 @@ for FILE in "$@"; do
     FAILED=1
     continue
   fi
-  awk -v file="$FILE" '
+  awk -v file="$FILE" -v q="'" '
     function indent(s) { match(s, /^ */); return RLENGTH }
     function close_step() {
       if (build) {
@@ -51,7 +51,7 @@ for FILE in "$@"; do
       body = substr(body, 3); sub(/^ +/, "", body); ind = dash + 2
     }
     instep && ind == dash + 2 {
-      if (body ~ /^uses:[[:space:]]*docker\/build-push-action@/) build = 1
+      if (body ~ ("^uses:[[:space:]]*[\"" q "]?docker/build-push-action@")) build = 1
       if (body ~ /^timeout-minutes:[[:space:]]*[1-9][0-9]*[[:space:]]*$/) timeout = 1
     }
     END {
