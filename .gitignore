@@ -62,8 +62,9 @@ __pycache__/
 /composer-local-protocol.*
 
 # A global gitignore on this machine matches .claude/, which would
-# otherwise silently drop any new file added under it. Anchored so a
-# .claude/ inside vendor/ or any other ignored directory stays ignored.
+# otherwise silently drop any new file added under it. Anchored so only
+# the top-level .claude/ is re-included; a .claude/ in any subdirectory
+# stays under the global ignore.
 !/.claude/
 !/.claude/**
 
@@ -73,3 +74,5 @@ __pycache__/
 /.claude/**/*.log
 /.claude/**/*.txt
 /.claude/**/__pycache__/
+/.claude/**/Thumbs.db
+/.claude/**/Desktop.ini
