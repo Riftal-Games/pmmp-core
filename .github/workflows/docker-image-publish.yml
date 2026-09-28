@@ -75,7 +75,12 @@ jobs:
       # would be a different image however identical the inputs looked, and the
       # whole point of gating publish on these checks is that the artefact tested
       # is the artefact that ships.
+      #
+      # 55 minutes matches docker-image-ci.yml: headroom over the documented
+      # 20-40 minute real build time, while a wedged build fails loud well inside
+      # an hour instead of holding the runner to the job's 360-minute default.
       - name: Build the image once, locally
+        timeout-minutes: 55
         uses: docker/build-push-action@v7.3.0
         with:
           context: ${{ github.workspace }}
