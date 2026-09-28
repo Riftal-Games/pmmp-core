@@ -45,7 +45,7 @@ jobs:
       shell: bash
       run: |
         .github/workflows/check-auto-report-flag.selftest.sh
-        .github/workflows/check-auto-report-flag.sh .github/workflows/docker-image-ci.yml .github/workflows/docker-image-publish.yml
+        .github/workflows/check-auto-report-flag.sh .github/workflows/docker-image-ci.yml .github/workflows/docker-image-publish.yml .github/workflows/reachable-smoke.sh
 
     # This runner's docker daemon and buildx state persist across separate
     # workflow runs, unlike a GitHub-hosted runner. A build killed mid-flight by
@@ -218,137 +218,10 @@ jobs:
     - name: Test if it is reachable over UDP
       timeout-minutes: 10
       shell: bash
-      env:
-        # Advertised Bedrock protocol. Derived from ProtocolInfo::CURRENT_PROTOCOL
-        # in axolotl-pm/bedrock-protocol 62.0.0+bedrock-1.26.50, which
-        # composer.lock pins. A protocol bump has to move this number
-        # deliberately, because that is the value that otherwise diverges from
-        # the client and from the proxy in silence.
-        EXPECTED_PROTOCOL: "2193"
-        EXPECTED_MOTD: "riftal-reachable-probe"
+      # A fixed name and port are harmless on a GitHub-hosted runner, which
+      # is single-job and thrown away after. They collide the moment this
+      # step runs twice against the same daemon, which is the normal case
+      # on a self-hosted runner and on a local `/dev-stack` run. Tie both to
+      # the run identity instead.
       run: |
-        set -euo pipefail
-
-        # A fixed name and port are harmless on a GitHub-hosted runner, which
-        # is single-job and thrown away after. They collide the moment this
-        # step runs twice against the same daemon, which is the normal case
-        # on a self-hosted runner and on a local `/dev-stack` run. Tie both to
-        # the run identity instead.
-        CONTAINER_NAME="pm-reachable-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-        HOST_PORT=$(( 20000 + (GITHUB_RUN_ID % 40000) ))
-
-        LOG="$(mktemp)"
-        FIFO="$(mktemp -u)"
-        mkfifo "$FIFO"
-        # Unlike the smoke steps above, this one needs the server alive while we
-        # ping it, so it cannot pipe `echo stop` in. Hold stdin open through a
-        # FIFO instead, and write `stop` into it once the ping is done, so the
-        # shutdown stays clean.
-        exec 3<>"$FIFO"
-
-        DOCKER_PID=""
-        # Runs on every exit from this point, including the readiness-timeout
-        # `exit 1` below, so a server that never comes up is not left running
-        # under the runner instead of being torn down with the job.
-        cleanup() {
-          local status=$?
-          local mounts="" name
-          local -a volumes=()
-          exec 3>&- 2>/dev/null || true
-          if [ -n "$DOCKER_PID" ]; then
-            docker stop "$CONTAINER_NAME" > /dev/null 2>&1 || true
-            wait "$DOCKER_PID" 2>/dev/null || true
-          fi
-          # docker/Dockerfile declares VOLUME /data and /plugins and this run
-          # mounts neither, so the container holds exactly two anonymous
-          # volumes. A count other than two means the check below no longer
-          # covers what the Dockerfile creates.
-          if mounts=$(docker inspect -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}} {{end}}{{end}}' "$CONTAINER_NAME" 2>/dev/null); then
-            read -r -a volumes <<< "$mounts"
-            if [ "${#volumes[@]}" != 2 ]; then
-              echo "::error::expected 2 anonymous volumes on $CONTAINER_NAME, found ${#volumes[@]}: $mounts"
-              status=1
-            fi
-          fi
-          docker rm -v "$CONTAINER_NAME" > /dev/null 2>&1 || true
-          # A volume that outlives the container is stranded on the daemon
-          # for good, and on a self-hosted runner they pile up run after run.
-          for name in "${volumes[@]}"; do
-            if docker volume inspect "$name" > /dev/null 2>&1; then
-              echo "::error::anonymous volume $name outlived docker rm -v $CONTAINER_NAME"
-              status=1
-            fi
-          done
-          rm -f "$LOG" "$LOG.clean" "$FIFO"
-          exit "$status"
-        }
-        trap cleanup EXIT
-
-        docker run --name "$CONTAINER_NAME" -i \
-          -p "$HOST_PORT:19132/udp" \
-          -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0 --motd=$EXPECTED_MOTD" \
-          local-pocketmine-mp <"$FIFO" >"$LOG" 2>&1 &
-        DOCKER_PID=$!
-
-        # Readiness is the server's own startFinished line
-        # (resources/translations/eng.ini: 'Done ({%0}s)! For help, type "help"
-        # or "?"'), not a fixed sleep and not "the process is alive". This run
-        # is `docker run -i` with no `-t`, so docker/start.sh leaves ANSI off
-        # by default; the strip below is a defensive no-op kept in case that
-        # ever changes. Written as two commands rather than a pipeline because
-        # `grep -q` exiting early would SIGPIPE the `sed` and `pipefail` would
-        # then read a match as a miss.
-        READY=0
-        for _ in $(seq 1 180); do
-          sed 's/\x1b\[[0-9;]*m//g' "$LOG" > "$LOG.clean"
-          if grep -qF 'For help, type "help"' "$LOG.clean"; then
-            READY=1
-            break
-          fi
-          if ! kill -0 "$DOCKER_PID" 2>/dev/null; then
-            break
-          fi
-          sleep 1
-        done
-
-        if [ "$READY" != 1 ]; then
-          echo "::error::server never reached the startFinished line, so there was nothing to ping"
-          cat "$LOG"
-          .github/workflows/check-no-crash-upload.sh "$LOG"
-          exit 1
-        fi
-        echo "server is up, pinging 127.0.0.1:$HOST_PORT/udp"
-
-        PING_STATUS=0
-        python3 .github/workflows/raknet-ping.py 127.0.0.1 "$HOST_PORT" \
-          --expect-motd "$EXPECTED_MOTD" \
-          --expect-protocol "$EXPECTED_PROTOCOL" || PING_STATUS=$?
-
-        # Shut down through the console `stop` command before reporting any
-        # verdict, so the run never ends on an abrupt termination. `stop`
-        # comes before the job-control `wait`: that wait blocks on the
-        # backgrounded `docker run` exiting, and a server ignoring the
-        # console `stop` would otherwise leave it blocked on a process
-        # nothing had yet asked to exit, turning the "did not shut down
-        # cleanly" verdict below into a 10-minute job cancellation instead.
-        echo stop >&3
-        exec 3>&-
-        SHUTDOWN_STATUS=0
-        timeout 120 docker wait "$CONTAINER_NAME" > /dev/null || SHUTDOWN_STATUS=$?
-        docker stop "$CONTAINER_NAME" > /dev/null 2>&1 || true
-        wait "$DOCKER_PID" || true
-
-        echo "--- server log ---"
-        cat "$LOG"
-        echo "--- end server log ---"
-        .github/workflows/check-no-crash-upload.sh "$LOG"
-
-        if [ "$PING_STATUS" != 0 ]; then
-          echo "::error::NOT REACHABLE: no valid RakNet unconnected pong on $HOST_PORT/udp"
-          exit "$PING_STATUS"
-        fi
-        if [ "$SHUTDOWN_STATUS" != 0 ]; then
-          echo "::error::server did not shut down cleanly after 'stop' on stdin"
-          exit 1
-        fi
-        echo "REACHABLE confirmed on $HOST_PORT/udp"
+        .github/workflows/reachable-smoke.sh local-pocketmine-mp           "pm-reachable-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"           "$(( 20000 + (GITHUB_RUN_ID % 40000) ))"           riftal-reachable-probe
