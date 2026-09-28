@@ -36,7 +36,7 @@ RUN test -f /opt/pocketmine/repo/PocketMine-MP.phar
 FROM ubuntu:24.04
 LABEL maintainer="PMMP Team <team@pmmp.io>"
 
-RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates wget
+RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates wget tini
 
 # The base image ships a default `ubuntu` account holding uid/gid 1000, and
 # 1000 is the ownership the /data and /plugins volumes are created with, so it
@@ -65,4 +65,9 @@ EXPOSE 19133/udp
 
 VOLUME ["/data", "/plugins"]
 
+# After a crash the server SIGKILLs its own pid (src/Server.php crashDump). The
+# kernel drops that signal for a namespace's pid 1, and the exit() after it
+# waits forever on any plugin thread still running, so the server must not be
+# pid 1 or a crashed container never exits. tini reaps and forwards signals.
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["start-pocketmine"]
