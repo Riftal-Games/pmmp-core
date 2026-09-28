@@ -49,8 +49,17 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-interaction
 
+      # PHPStan's cache defaults to sys_get_temp_dir(), which is /tmp: on the
+      # self-hosted runners a tmpfs shared by every lane, which the 2G cache
+      # can fill. runner.temp is on the runner's disk and emptied per job.
       - name: Run PHPStan
-        run: ./vendor/bin/phpstan analyze --no-progress --memory-limit=2G
+        shell: bash
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          ./vendor/bin/phpstan analyze --no-progress --memory-limit=2G
+          du -sh "$(php -r 'echo sys_get_temp_dir();')/phpstan"
 
   phpunit:
     name: PHPUnit tests
