@@ -22,7 +22,10 @@ expect() {
 }
 
 GOOD='        echo stop | docker run --rm -i -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" local-pocketmine-mp'
-GOOD_MID='          -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0 --motd=$EXPECTED_MOTD" \'
+GOOD_MID="$(cat <<'EOF'
+          -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0 --motd=$EXPECTED_MOTD" \
+EOF
+)"
 
 expect 0 flag-last "$GOOD"
 expect 0 flag-mid "$GOOD_MID"
