@@ -44,6 +44,12 @@ jobs:
       shell: bash
       run: .github/workflows/reachable-smoke.selftest.sh
 
+    # The real crash boot below exits non-zero, so only a stub can show the
+    # step failing a crashed server that hangs or exits 0.
+    - name: Self-test the crash-on-boot smoke script
+      shell: bash
+      run: .github/workflows/crash-boot-smoke.selftest.sh
+
     # Only a missing, repeated or non-zero --auto-report.enabled lets a crash
     # reach the upload path at all, and no boot step can see that on a clean
     # boot. Covers the publish workflow too, which has no pull_request run.
@@ -52,7 +58,7 @@ jobs:
       shell: bash
       run: |
         .github/workflows/check-auto-report-flag.selftest.sh
-        .github/workflows/check-auto-report-flag.sh .github/workflows/docker-image-ci.yml .github/workflows/docker-image-publish.yml .github/workflows/reachable-smoke.sh
+        .github/workflows/check-auto-report-flag.sh .github/workflows/docker-image-ci.yml .github/workflows/docker-image-publish.yml .github/workflows/reachable-smoke.sh .github/workflows/crash-boot-smoke.sh
         .github/workflows/check-build-timeout.selftest.sh
         .github/workflows/check-build-timeout.sh .github/workflows/docker-image-ci.yml .github/workflows/docker-image-publish.yml
 
@@ -234,3 +240,12 @@ jobs:
       # the run identity instead.
       run: |
         .github/workflows/reachable-smoke.sh local-pocketmine-mp           "pm-reachable-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"           "$(( 20000 + (GITHUB_RUN_ID % 40000) ))"           riftal-reachable-probe
+
+    # A server that crashes while enabling a plugin SIGKILLs its own pid after
+    # the restart throttle. As a container's pid 1 it survives that and hangs
+    # on the fixture's live thread (#105). docker/Dockerfile runs it under tini.
+    - name: Test if a crash on boot exits the container
+      timeout-minutes: 5
+      shell: bash
+      run: |
+        .github/workflows/crash-boot-smoke.sh local-pocketmine-mp "pm-crash-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ./docker/testsuite/crash-on-enable

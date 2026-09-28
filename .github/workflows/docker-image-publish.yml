@@ -186,6 +186,15 @@ jobs:
         run: |
           .github/workflows/reachable-smoke.sh local-pocketmine-mp             "pm-publish-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"             "$(( 20000 + (GITHUB_RUN_ID % 40000) ))"             riftal-publish-probe
 
+      # A server that crashes while enabling a plugin SIGKILLs its own pid after
+      # the restart throttle. As a container's pid 1 it survives that and hangs
+      # on the fixture's live thread (#105). docker/Dockerfile runs it under tini.
+      - name: Test if a crash on boot exits the container
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          .github/workflows/crash-boot-smoke.sh local-pocketmine-mp "pm-publish-crash-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ./docker/testsuite/crash-on-enable
+
       - name: Push tag
         run: |
           docker tag local-pocketmine-mp ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:${{ steps.tag-name.outputs.TAG_NAME }}
