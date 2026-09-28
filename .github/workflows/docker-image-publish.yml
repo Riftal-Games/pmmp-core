@@ -43,15 +43,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Every value a script reads arrives through env:, never as a ${{ }}
+      # pasted into the script, because the dispatch input is free text and
+      # would otherwise run as shell. check-run-expressions.sh enforces it.
       - name: Get tag name
         id: tag-name
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          DISPATCH_TAG: ${{ github.event.inputs.release }}
         run: |
-          if [[ "${{ github.event_name }}" == "release" ]]; then
-            echo TAG_NAME="${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo TAG_NAME="${{ github.event.inputs.release }}" >> $GITHUB_OUTPUT
+          if [[ "$GITHUB_EVENT_NAME" == "release" ]]; then
+            echo TAG_NAME="$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo TAG_NAME="$DISPATCH_TAG" >> "$GITHUB_OUTPUT"
           else
-            echo "Unsupported event type: ${{ github.event_name }}"
+            echo "Unsupported event type: $GITHUB_EVENT_NAME"
             exit 1
           fi
 
@@ -69,13 +76,18 @@ jobs:
 
       - name: Parse version
         id: version
+        shell: bash
+        env:
+          VERSION: ${{ steps.tag-name.outputs.TAG_NAME }}
         run: |
-          VERSION="${{ steps.tag-name.outputs.TAG_NAME }}"
-          echo MAJOR=$(echo $VERSION | cut -d. -f1) >> $GITHUB_OUTPUT
-          echo MINOR=$(echo $VERSION | cut -d. -f1-2) >> $GITHUB_OUTPUT
+          echo MAJOR="$(echo "$VERSION" | cut -d. -f1)" >> "$GITHUB_OUTPUT"
+          echo MINOR="$(echo "$VERSION" | cut -d. -f1-2)" >> "$GITHUB_OUTPUT"
 
       - name: Download new release information
-        run: curl -f -L ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ steps.tag-name.outputs.TAG_NAME }}/build_info.json -o new_build_info.json
+        shell: bash
+        env:
+          TAG_NAME: ${{ steps.tag-name.outputs.TAG_NAME }}
+        run: curl -f -L "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$TAG_NAME/build_info.json" -o new_build_info.json
 
       - name: Detect channel
         id: channel
@@ -217,24 +229,36 @@ jobs:
           .github/workflows/crash-boot-smoke.sh local-pocketmine-mp "pm-publish-crash-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ./docker/testsuite/crash-on-enable
 
       - name: Push tag
+        shell: bash
+        env:
+          IMAGE: ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:${{ steps.tag-name.outputs.TAG_NAME }}
         run: |
-          docker tag local-pocketmine-mp ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:${{ steps.tag-name.outputs.TAG_NAME }}
-          docker push ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:${{ steps.tag-name.outputs.TAG_NAME }}
+          docker tag local-pocketmine-mp "$IMAGE"
+          docker push "$IMAGE"
 
       - name: Push major tag
         if: steps.channel.outputs.CHANNEL == 'stable'
+        shell: bash
+        env:
+          IMAGE: ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:${{ steps.version.outputs.MAJOR }}
         run: |
-          docker tag local-pocketmine-mp ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:${{ steps.version.outputs.MAJOR }}
-          docker push ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:${{ steps.version.outputs.MAJOR }}
+          docker tag local-pocketmine-mp "$IMAGE"
+          docker push "$IMAGE"
 
       - name: Push minor tag
         if: steps.channel.outputs.CHANNEL == 'stable'
+        shell: bash
+        env:
+          IMAGE: ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:${{ steps.version.outputs.MINOR }}
         run: |
-          docker tag local-pocketmine-mp ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:${{ steps.version.outputs.MINOR }}
-          docker push ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:${{ steps.version.outputs.MINOR }}
+          docker tag local-pocketmine-mp "$IMAGE"
+          docker push "$IMAGE"
 
       - name: Push latest tag
         if: steps.channel.outputs.CHANNEL == 'stable'
+        shell: bash
+        env:
+          IMAGE: ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:latest
         run: |
-          docker tag local-pocketmine-mp ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:latest
-          docker push ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:latest
+          docker tag local-pocketmine-mp "$IMAGE"
+          docker push "$IMAGE"
