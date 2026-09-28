@@ -34,6 +34,7 @@ use function json_decode;
 use function json_encode;
 use function parse_ini_file;
 use function preg_match_all;
+use function sleep;
 use function str_starts_with;
 use const INI_SCANNER_RAW;
 use const JSON_PRETTY_PRINT;
@@ -151,6 +152,24 @@ function verify_keys(array $pocketmine, array $mojang, array $knownBadKeys) : ar
 	return $wrong;
 }
 
+/**
+ * Self-hosted runners have seen intermittent egress timeouts to raw.githubusercontent.com
+ * on some hosts but not others for the same request, so a short retry absorbs a single
+ * blip without masking a real, sustained outage.
+ */
+function fetch_url_with_retry(string $url, int $attempts, int $delaySeconds) : string|false{
+	for($attempt = 1; $attempt <= $attempts; $attempt++){
+		$contents = file_get_contents($url);
+		if($contents !== false){
+			return $contents;
+		}
+		if($attempt < $attempts){
+			sleep($delaySeconds);
+		}
+	}
+	return false;
+}
+
 if(count($argv) !== 2){
 	fwrite(STDERR, "Required arguments: path\n");
 	exit(1);
@@ -166,7 +185,7 @@ if($eng === null){
 	exit(1);
 }
 
-$mojangRaw = file_get_contents("https://raw.githubusercontent.com/Mojang/bedrock-samples/refs/heads/main/resource_pack/texts/en_US.lang");
+$mojangRaw = fetch_url_with_retry("https://raw.githubusercontent.com/Mojang/bedrock-samples/refs/heads/main/resource_pack/texts/en_US.lang", 3, 5);
 if($mojangRaw === false){
 	fwrite(STDERR, "Failed to fetch official Mojang sources for verification\n");
 	exit(1);
