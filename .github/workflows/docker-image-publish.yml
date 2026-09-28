@@ -24,6 +24,12 @@ jobs:
         with:
           submodules: true #needed for build/php submodule
 
+      # A hand-released ref may never have run docker-image-ci.yml, so the
+      # checks gating the push below prove here that they can still fail.
+      - name: Self-test the checking scripts and check the workflows
+        shell: bash
+        run: bash .github/workflows/self-test-checks.sh
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
