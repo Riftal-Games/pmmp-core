@@ -252,12 +252,33 @@ jobs:
         # under the runner instead of being torn down with the job.
         cleanup() {
           local status=$?
+          local mounts="" name
+          local -a volumes=()
           exec 3>&- 2>/dev/null || true
           if [ -n "$DOCKER_PID" ]; then
             docker stop "$CONTAINER_NAME" > /dev/null 2>&1 || true
             wait "$DOCKER_PID" 2>/dev/null || true
           fi
-          docker rm "$CONTAINER_NAME" > /dev/null 2>&1 || true
+          # docker/Dockerfile declares VOLUME /data and /plugins and this run
+          # mounts neither, so the container holds exactly two anonymous
+          # volumes. A count other than two means the check below no longer
+          # covers what the Dockerfile creates.
+          if mounts=$(docker inspect -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}} {{end}}{{end}}' "$CONTAINER_NAME" 2>/dev/null); then
+            read -r -a volumes <<< "$mounts"
+            if [ "${#volumes[@]}" != 2 ]; then
+              echo "::error::expected 2 anonymous volumes on $CONTAINER_NAME, found ${#volumes[@]}: $mounts"
+              status=1
+            fi
+          fi
+          docker rm -v "$CONTAINER_NAME" > /dev/null 2>&1 || true
+          # A volume that outlives the container is stranded on the daemon
+          # for good, and on a self-hosted runner they pile up run after run.
+          for name in "${volumes[@]}"; do
+            if docker volume inspect "$name" > /dev/null 2>&1; then
+              echo "::error::anonymous volume $name outlived docker rm -v $CONTAINER_NAME"
+              status=1
+            fi
+          done
           rm -f "$LOG" "$LOG.clean" "$FIFO"
           exit "$status"
         }
