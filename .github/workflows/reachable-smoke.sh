@@ -124,9 +124,13 @@ python3 "$HERE/raknet-ping.py" 127.0.0.1 "$HOST_PORT" \
 echo stop >&3
 exec 3>&-
 SHUTDOWN_STATUS=0
-timeout 120 docker wait "$CONTAINER_NAME" > /dev/null || SHUTDOWN_STATUS=$?
+EXIT_CODE=""
+# `docker wait` exits 0 whatever the container did and prints the
+# container's exit code instead. PocketMine exits 0 on a console `stop`.
+EXIT_CODE=$(timeout 120 docker wait "$CONTAINER_NAME") || SHUTDOWN_STATUS=$?
 docker stop "$CONTAINER_NAME" > /dev/null 2>&1 || true
-wait "$DOCKER_PID" || true
+RUN_STATUS=0
+wait "$DOCKER_PID" || RUN_STATUS=$?
 
 echo "--- server log ---"
 cat "$LOG"
@@ -139,6 +143,14 @@ if [ "$PING_STATUS" != 0 ]; then
 fi
 if [ "$SHUTDOWN_STATUS" != 0 ]; then
   echo "::error::server did not shut down cleanly after 'stop' on stdin"
+  exit 1
+fi
+if [ "$EXIT_CODE" != 0 ]; then
+  echo "::error::server exited with code $EXIT_CODE after 'stop' on stdin, expected 0"
+  exit 1
+fi
+if [ "$RUN_STATUS" != 0 ]; then
+  echo "::error::docker run exited $RUN_STATUS after 'stop' on stdin, expected 0"
   exit 1
 fi
 echo "REACHABLE confirmed on $HOST_PORT/udp"
