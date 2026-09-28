@@ -10,7 +10,7 @@ permissions:
 jobs:
   delabel:
     name: Remove label
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, riftal]
 
     steps:
       - name: Remove label
@@ -36,5 +36,7 @@ jobs:
               }
             }
             const [owner, repo] = context.payload.repository.full_name.split('/');
-            removeLabel(owner, repo, context.payload.number, "Status: Waiting on Author");
-            removeLabel(owner, repo, context.payload.number, "Stale");
+            await Promise.all([
+              removeLabel(owner, repo, context.payload.number, "Status: Waiting on Author"),
+              removeLabel(owner, repo, context.payload.number, "Stale"),
+            ]);
