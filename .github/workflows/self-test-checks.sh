@@ -10,7 +10,7 @@
 # even after a failure, so a single run reports all that are broken.
 set -uo pipefail
 
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../.." || exit 1
 shopt -s nullglob
 FAILED=0
 
