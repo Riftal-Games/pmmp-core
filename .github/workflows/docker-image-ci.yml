@@ -38,6 +38,12 @@ jobs:
       shell: bash
       run: .github/workflows/check-no-crash-upload.selftest.sh
 
+    # The real boot below exits 0 on `stop`, so only stubs can show the
+    # REACHABLE step failing a server that exits non-zero or leaks a volume.
+    - name: Self-test the REACHABLE smoke script
+      shell: bash
+      run: .github/workflows/reachable-smoke.selftest.sh
+
     # Only a missing, repeated or non-zero --auto-report.enabled lets a crash
     # reach the upload path at all, and no boot step can see that on a clean
     # boot. Covers the publish workflow too, which has no pull_request run.
