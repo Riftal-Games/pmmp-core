@@ -119,14 +119,31 @@ jobs:
           fi
           echo "all $TOTAL stages pinned to Ubuntu $EXPECTED_UBUNTU"
 
+      # Each boot passes --auto-report.enabled=0 exactly once: the shipped
+      # pocketmine.yml posts crash dumps to a public archive, and a repeated
+      # flag reaches the server as an array, which casts back to true (#91).
+      # shell: bash brings -e and pipefail. The server's exit status is held
+      # until the upload check has read the log, because an upload only ever
+      # comes from Server::crashDump(), which always exits non-zero.
       - name: Test if it runs the normal server properly
         timeout-minutes: 10
-        run: echo stop | docker run --rm -i -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp
+        shell: bash
+        run: |
+          LOG="$(mktemp)"
+          STATUS=0
+          echo stop | docker run --rm -i -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" local-pocketmine-mp | tee "$LOG" || STATUS=$?
+          .github/workflows/check-no-crash-upload.sh "$LOG"
+          [ "$STATUS" = 0 ] || exit "$STATUS"
 
       - name: Test if it loads plugins
         timeout-minutes: 10
+        shell: bash
         run: |
-          echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/create-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp
+          LOG="$(mktemp)"
+          STATUS=0
+          echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/create-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" local-pocketmine-mp | tee "$LOG" || STATUS=$?
+          .github/workflows/check-no-crash-upload.sh "$LOG"
+          [ "$STATUS" = 0 ] || exit "$STATUS"
           test -f ./docker/test_data/plugin_data/data-test/create-data
           test "$(cat ./docker/test_data/plugin_data/data-test/create-data)" = "successful"
 
@@ -136,9 +153,13 @@ jobs:
       # evidence that the check actually happened, not just that nothing failed.
       - name: Test if it persists plugin data
         timeout-minutes: 10
+        shell: bash
         run: |
           LOG="$(mktemp)"
-          echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp | tee "$LOG"
+          STATUS=0
+          echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" local-pocketmine-mp | tee "$LOG" || STATUS=$?
+          .github/workflows/check-no-crash-upload.sh "$LOG"
+          [ "$STATUS" = 0 ] || exit "$STATUS"
 
           if ! grep -qF "Enabling data-test" "$LOG"; then
             echo "::error::data-test never enabled, so the persisted data was never actually checked"
@@ -192,7 +213,7 @@ jobs:
 
           docker run --name "$CONTAINER_NAME" -i \
             -p "$HOST_PORT:19132/udp" \
-            -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --motd=$EXPECTED_MOTD" \
+            -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0 --motd=$EXPECTED_MOTD" \
             local-pocketmine-mp <"$FIFO" >"$LOG" 2>&1 &
           DOCKER_PID=$!
 
@@ -212,6 +233,7 @@ jobs:
           if [ "$READY" != 1 ]; then
             echo "::error::server never reached the startFinished line, so there was nothing to ping"
             cat "$LOG"
+            .github/workflows/check-no-crash-upload.sh "$LOG"
             exit 1
           fi
           echo "server is up, pinging 127.0.0.1:$HOST_PORT/udp"
@@ -231,6 +253,7 @@ jobs:
           echo "--- server log ---"
           cat "$LOG"
           echo "--- end server log ---"
+          .github/workflows/check-no-crash-upload.sh "$LOG"
 
           if [ "$PING_STATUS" != 0 ]; then
             echo "::error::NOT REACHABLE: no valid RakNet unconnected pong on $HOST_PORT/udp"
