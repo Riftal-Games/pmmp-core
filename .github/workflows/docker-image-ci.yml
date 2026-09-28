@@ -1,8 +1,12 @@
 name: Docker image CI
 
+# A branch push is covered by its pull_request run. Triggering on both would
+# run every job twice on the two shared self-hosted runners.
 on:
   push:
+    branches: [riftal]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
