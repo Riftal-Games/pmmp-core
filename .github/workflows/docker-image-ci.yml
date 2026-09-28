@@ -46,8 +46,11 @@ jobs:
         set -euo pipefail
         BUILDER_NAME="pm-buildx-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
         docker buildx rm "$BUILDER_NAME" > /dev/null 2>&1 || true
-        docker buildx create --name "$BUILDER_NAME" --driver docker-container --use --bootstrap
+        # Written before create/bootstrap runs, not after, so the teardown
+        # step below still knows this run's builder name even if create or
+        # bootstrap itself is what hangs, gets cancelled, or times out.
         echo "name=$BUILDER_NAME" >> "$GITHUB_OUTPUT"
+        docker buildx create --name "$BUILDER_NAME" --driver docker-container --use --bootstrap
 
     - name: Create data directories
       run: mkdir ./docker/test_data
