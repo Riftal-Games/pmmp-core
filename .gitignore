@@ -61,9 +61,10 @@ __pycache__/
 # install-local-protocol.sh
 /composer-local-protocol.*
 
-# The global excludes file ignores the .claude/ directory itself, which
-# hides every new file under it. Lifting only the top-level directory
-# lets its contents follow this file's rules; the local settings file
-# is per-user and stays out.
+# A global excludes file that ignores .claude/ hides every new file under
+# it. Lifting only the top-level directory lets its contents follow the
+# remaining ignore rules, this file's and the global one's, so a nested
+# CLAUDE.md is still dropped. The local settings file is per-user and
+# stays out.
 !/.claude/
 /.claude/settings.local.json
