@@ -41,11 +41,14 @@ jobs:
     # Only a missing, repeated or non-zero --auto-report.enabled lets a crash
     # reach the upload path at all, and no boot step can see that on a clean
     # boot. Covers the publish workflow too, which has no pull_request run.
+    # Its build step timeout is checked here for the same reason.
     - name: Check every boot disables crash auto-report
       shell: bash
       run: |
         .github/workflows/check-auto-report-flag.selftest.sh
         .github/workflows/check-auto-report-flag.sh .github/workflows/docker-image-ci.yml .github/workflows/docker-image-publish.yml .github/workflows/reachable-smoke.sh
+        .github/workflows/check-build-timeout.selftest.sh
+        .github/workflows/check-build-timeout.sh .github/workflows/docker-image-ci.yml .github/workflows/docker-image-publish.yml
 
     # This runner's docker daemon and buildx state persist across separate
     # workflow runs, unlike a GitHub-hosted runner. A build killed mid-flight by
