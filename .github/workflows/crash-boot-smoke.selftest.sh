@@ -14,6 +14,12 @@ cat > "$DIR/bin/docker" <<'EOF'
 #!/usr/bin/env bash
 case "$1" in
   run)
+    # A crash boot that can reach a network or the shipped archive host is
+    # the one that can leak a dump, so the stub refuses to start it.
+    if [[ " $* " != *" --network none "* || " $* " != *" --auto-report.host=127.0.0.1:9 "* ]]; then
+      echo "stub docker: crash boot not isolated: $*" >&2
+      exit 125
+    fi
     echo 0123456789ab
     ;;
   wait)
