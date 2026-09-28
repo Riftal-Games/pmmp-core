@@ -2,7 +2,8 @@
 # REACHABLE check shared by docker-image-ci.yml and docker-image-publish.yml.
 # Boots the image with its UDP port published, expects a RakNet pong with
 # the given MOTD and the protocol below, then stops the server through its console
-# and removes the container and its anonymous volumes.
+# and removes the container and its anonymous volumes. A server that exits
+# non-zero after `stop` fails the run even when the pong was valid.
 #
 # Usage: reachable-smoke.sh <image> <container name> <host port> <motd>
 set -euo pipefail
@@ -124,7 +125,6 @@ python3 "$HERE/raknet-ping.py" 127.0.0.1 "$HOST_PORT" \
 echo stop >&3
 exec 3>&-
 SHUTDOWN_STATUS=0
-EXIT_CODE=""
 # `docker wait` exits 0 whatever the container did and prints the
 # container's exit code instead. PocketMine exits 0 on a console `stop`.
 EXIT_CODE=$(timeout 120 docker wait "$CONTAINER_NAME") || SHUTDOWN_STATUS=$?
