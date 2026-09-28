@@ -32,6 +32,12 @@ jobs:
       shell: bash
       run: python3 .github/workflows/raknet-ping.selftest.py
 
+    # Every boot step below passes on a log with no upload line in it, so a
+    # pattern that stopped matching would pass them all without this.
+    - name: Self-test the crash upload check
+      shell: bash
+      run: .github/workflows/check-no-crash-upload.selftest.sh
+
     # This runner's docker daemon and buildx state persist across separate
     # workflow runs, unlike a GitHub-hosted runner. A build killed mid-flight by
     # a cancellation can leave its builder's buildkitd wedged (issue #79: a
@@ -142,14 +148,26 @@ jobs:
         fi
         echo "all $TOTAL stages pinned to Ubuntu $EXPECTED_UBUNTU"
 
+    # Each boot passes --auto-report.enabled=0 exactly once: the shipped
+    # pocketmine.yml posts crash dumps to a public archive, and a repeated
+    # flag reaches the server as an array, which casts back to true (#91).
+    # shell: bash brings pipefail, so the tee that feeds the upload check
+    # does not hide the server's own exit status.
     - name: Test if it runs the normal server properly
       timeout-minutes: 10
-      run: echo stop | docker run --rm -i -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp
+      shell: bash
+      run: |
+        LOG="$(mktemp)"
+        echo stop | docker run --rm -i -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" local-pocketmine-mp | tee "$LOG"
+        .github/workflows/check-no-crash-upload.sh "$LOG"
 
     - name: Test if it loads plugins
       timeout-minutes: 10
+      shell: bash
       run: |
-        echo stop | docker run --rm -i --user "$(id -u):$(id -g)" -v ./docker/test_data:/data -v ./docker/testsuite/create-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp
+        LOG="$(mktemp)"
+        echo stop | docker run --rm -i --user "$(id -u):$(id -g)" -v ./docker/test_data:/data -v ./docker/testsuite/create-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" local-pocketmine-mp | tee "$LOG"
+        .github/workflows/check-no-crash-upload.sh "$LOG"
         test -f ./docker/test_data/plugin_data/data-test/create-data
         test "$(cat ./docker/test_data/plugin_data/data-test/create-data)" = "successful"
 
@@ -159,9 +177,11 @@ jobs:
     # evidence that the check actually happened, not just that nothing failed.
     - name: Test if it persists plugin data
       timeout-minutes: 10
+      shell: bash
       run: |
         LOG="$(mktemp)"
-        echo stop | docker run --rm -i --user "$(id -u):$(id -g)" -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1" local-pocketmine-mp | tee "$LOG"
+        echo stop | docker run --rm -i --user "$(id -u):$(id -g)" -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" local-pocketmine-mp | tee "$LOG"
+        .github/workflows/check-no-crash-upload.sh "$LOG"
 
         if ! grep -qF "Enabling data-test" "$LOG"; then
           echo "::error::data-test never enabled, so the persisted data was never actually checked"
@@ -229,7 +249,7 @@ jobs:
 
         docker run --name "$CONTAINER_NAME" -i \
           -p "$HOST_PORT:19132/udp" \
-          -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --motd=$EXPECTED_MOTD" \
+          -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0 --motd=$EXPECTED_MOTD" \
           local-pocketmine-mp <"$FIFO" >"$LOG" 2>&1 &
         DOCKER_PID=$!
 
@@ -292,4 +312,5 @@ jobs:
           echo "::error::server did not shut down cleanly after 'stop' on stdin"
           exit 1
         fi
+        .github/workflows/check-no-crash-upload.sh "$LOG"
         echo "REACHABLE confirmed on $HOST_PORT/udp"
