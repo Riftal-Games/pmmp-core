@@ -31,9 +31,13 @@ trap cleanup EXIT
 
 # --auto-report.enabled=0 exactly once: this boot crashes on purpose, and the
 # shipped pocketmine.yml posts crash dumps to a public archive (#91).
+# Should the flag stop taking effect, the post goes to a closed port on a
+# container with no network, so no dump leaves the runner and the refused
+# connection logs a line check-no-crash-upload.sh fails on (#95).
 docker run -d --name "$CONTAINER_NAME" \
+  --network none \
   -v "$PLUGINS:/plugins" \
-  -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" \
+  -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0 --auto-report.host=127.0.0.1:9" \
   "$IMAGE" > /dev/null
 
 # Waiting on `docker wait` rather than an attached `docker run`: the attached
