@@ -205,7 +205,9 @@ jobs:
               docker stop "$CONTAINER_NAME" > /dev/null 2>&1 || true
               wait "$DOCKER_PID" 2>/dev/null || true
             fi
-            docker rm "$CONTAINER_NAME" > /dev/null 2>&1 || true
+            # -v because docker/Dockerfile declares VOLUME /data and /plugins and
+            # this run mounts neither, so each run creates two anonymous volumes.
+            docker rm -v "$CONTAINER_NAME" > /dev/null 2>&1 || true
             rm -f "$LOG" "$LOG.clean" "$FIFO"
             exit "$status"
           }
