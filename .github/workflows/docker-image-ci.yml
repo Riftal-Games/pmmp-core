@@ -17,50 +17,12 @@ jobs:
       with:
         submodules: true #needed for build/php submodule
 
-    # Pure text logic, no image needed. Runs before the build so a broken
-    # stage-walk check fails in seconds instead of after the 20-40 minute
-    # build it would otherwise silently misjudge.
-    - name: Self-test the base-image stage-walk check
+    # Stub and fixture driven, no image needed, so a broken check fails in
+    # seconds instead of after the 20-40 minute build it would otherwise
+    # silently misjudge. docker-image-publish.yml runs the same script.
+    - name: Self-test the checking scripts and check the workflows
       shell: bash
-      run: docker/check-ubuntu-base.selftest.sh
-
-    # Same reasoning: pure UDP loopback against a fake responder, no image
-    # needed, so a broken REACHABLE assertion fails in seconds rather than
-    # after the build, and rather than passing quietly because a real
-    # container happened to answer with the right bytes anyway.
-    - name: Self-test the RakNet REACHABLE check
-      shell: bash
-      run: python3 .github/workflows/raknet-ping.selftest.py
-
-    # Every boot step below passes on a log with no upload line in it, so a
-    # pattern that stopped matching would pass them all without this.
-    - name: Self-test the crash upload check
-      shell: bash
-      run: .github/workflows/check-no-crash-upload.selftest.sh
-
-    # The real boot below exits 0 on `stop`, so only stubs can show the
-    # REACHABLE step failing a server that exits non-zero or leaks a volume.
-    - name: Self-test the REACHABLE smoke script
-      shell: bash
-      run: .github/workflows/reachable-smoke.selftest.sh
-
-    # The real crash boot below exits non-zero, so only a stub can show the
-    # step failing a crashed server that hangs or exits 0.
-    - name: Self-test the crash-on-boot smoke script
-      shell: bash
-      run: .github/workflows/crash-boot-smoke.selftest.sh
-
-    # Only a missing, repeated or non-zero --auto-report.enabled lets a crash
-    # reach the upload path at all, and no boot step can see that on a clean
-    # boot. Covers the publish workflow too, which has no pull_request run.
-    # Its build step timeout is checked here for the same reason.
-    - name: Check every boot disables crash auto-report
-      shell: bash
-      run: |
-        .github/workflows/check-auto-report-flag.selftest.sh
-        .github/workflows/check-auto-report-flag.sh .github/workflows/docker-image-ci.yml .github/workflows/docker-image-publish.yml .github/workflows/reachable-smoke.sh .github/workflows/crash-boot-smoke.sh
-        .github/workflows/check-build-timeout.selftest.sh
-        .github/workflows/check-build-timeout.sh .github/workflows/docker-image-ci.yml .github/workflows/docker-image-publish.yml
+      run: bash .github/workflows/self-test-checks.sh
 
     # This runner's docker daemon and buildx state persist across separate
     # workflow runs, unlike a GitHub-hosted runner. A build killed mid-flight by
