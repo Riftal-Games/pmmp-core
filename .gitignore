@@ -60,3 +60,8 @@ __pycache__/
 
 # install-local-protocol.sh
 /composer-local-protocol.*
+
+# A global gitignore on this machine matches .claude/, which would
+# otherwise silently drop any new file added under it.
+!.claude/
+!.claude/**
