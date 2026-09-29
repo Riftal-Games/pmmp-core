@@ -91,11 +91,11 @@ jobs:
 
       - name: Detect channel
         id: channel
-        run: echo CHANNEL=$(jq -r '.channel' new_build_info.json) >> $GITHUB_OUTPUT
+        run: echo CHANNEL="$(jq -r '.channel' new_build_info.json)" >> "$GITHUB_OUTPUT"
 
       - name: Get name of Docker repository name
         id: docker-repo-name
-        run: echo NAME=$(echo "${GITHUB_REPOSITORY,,}") >> $GITHUB_OUTPUT
+        run: echo NAME="${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
       - name: Create data directories
         run: |
