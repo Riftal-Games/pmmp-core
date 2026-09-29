@@ -11,7 +11,6 @@
 set -uo pipefail
 
 cd "$(dirname "$0")/../.." || exit 1
-shopt -s nullglob
 FAILED=0
 
 run() {
@@ -23,7 +22,10 @@ run() {
   echo "::endgroup::"
 }
 
-TESTS=(docker/*.selftest.sh docker/*.selftest.py .github/workflows/*.selftest.sh .github/workflows/*.selftest.py)
+# Subdirectories count, and a *.selftest.* this cannot run fails the gate
+# rather than passing it unrun. __pycache__ holds the interpreter's own
+# compiled copies, never a self-test anyone wrote.
+mapfile -t TESTS < <(find docker .github/workflows -name __pycache__ -prune -o -type f -name '*.selftest.*' -print | sort)
 if [ "${#TESTS[@]}" = 0 ]; then
   echo "::error::no self-tests found, so no checking script was proven"
   exit 1
@@ -31,8 +33,12 @@ fi
 
 for TEST in "${TESTS[@]}"; do
   case "$TEST" in
-    *.py) run python3 "$TEST" ;;
-    *) run bash "$TEST" ;;
+    *.selftest.py) run python3 "$TEST" ;;
+    *.selftest.sh) run bash "$TEST" ;;
+    *)
+      echo "::error::$TEST is named as a self-test but has no runner, only .sh and .py run"
+      FAILED=1
+      ;;
   esac
 done
 
@@ -43,5 +49,5 @@ run bash .github/workflows/check-auto-report-flag.sh "${WORKFLOWS[@]}" .github/w
 run bash .github/workflows/check-build-timeout.sh "${WORKFLOWS[@]}"
 run bash .github/workflows/check-run-expressions.sh .github/workflows/docker-image-publish.yml
 
-echo "ran ${#TESTS[@]} self-test(s) and the workflow checks"
+echo "found ${#TESTS[@]} self-test(s), ran the workflow checks"
 exit "$FAILED"
