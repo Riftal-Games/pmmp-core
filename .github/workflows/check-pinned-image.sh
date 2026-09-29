@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# Fails unless every step of docker-image-ci.yml that runs or tags the image
+# names it by "$IMAGE_ID", the ID the build step reported, and nothing names
+# the bare tag but the build's own tags: line and the sha tag's repository.
+# The riftal runners share one docker daemon, so the bare tag is whatever
+# image any run built last, and a smoke verdict on it may be a verdict on
+# someone else's build (#164).
+#
+# Comments are skipped, whole-line and trailing, so a commented-out line can
+# neither satisfy the check nor trip it. Continued lines are joined first.
+# Each kind of step must appear at least once, so a renamed script fails here
+# rather than passing unchecked.
+#
+# Usage: check-pinned-image.sh <workflow file>
+set -uo pipefail
+
+if [ "$#" != 1 ]; then
+  echo "usage: check-pinned-image.sh <workflow file>" >&2
+  exit 2
+fi
+FILE="$1"
+if [ ! -f "$FILE" ]; then
+  echo "::error::no workflow file at $FILE"
+  exit 1
+fi
+
+# The literal text a step must pass, never expanded here.
+# shellcheck disable=SC2016
+PINNED='"$IMAGE_ID"'
+TAG_CALL="tag-image-sha.sh local-pocketmine-mp $PINNED"
+FAILED=0
+PINS=0
+RUNS=0
+REACHABLE=0
+CRASH=0
+TAGS=0
+
+fail() {
+  echo "::error file=$FILE,line=$1::$2"
+  FAILED=1
+}
+
+while IFS=$'\t' read -r NUM CODE; do
+  if [[ "$CODE" == *steps.build.outputs.imageid* ]]; then
+    PINS=$((PINS + 1))
+  fi
+  KIND=
+  if [[ "$CODE" =~ docker[[:space:]]+(container[[:space:]]+)?(run|create)([[:space:]]|$) ]]; then
+    KIND=run
+    RUNS=$((RUNS + 1))
+  elif [[ "$CODE" == *reachable-smoke.sh* ]]; then
+    KIND=reachable
+    REACHABLE=$((REACHABLE + 1))
+  elif [[ "$CODE" == *crash-boot-smoke.sh* ]]; then
+    KIND=crash
+    CRASH=$((CRASH + 1))
+  elif [[ "$CODE" == *tag-image-sha.sh* ]]; then
+    KIND=tag
+    TAGS=$((TAGS + 1))
+    if [[ "$CODE" != *"$TAG_CALL"* ]]; then
+      fail "$NUM" "tag-image-sha.sh must be called as: $TAG_CALL"
+    fi
+  fi
+  if [ -n "$KIND" ] && [[ "$CODE" != *"$PINNED"* ]]; then
+    fail "$NUM" "this $KIND step does not name the image by $PINNED"
+  fi
+  REST="${CODE//"$TAG_CALL"/}"
+  if [[ "$REST" == *local-pocketmine-mp* ]] && ! [[ "$CODE" =~ ^[[:space:]]*tags:[[:space:]]*local-pocketmine-mp[[:space:]]*$ ]]; then
+    fail "$NUM" "names the bare tag local-pocketmine-mp, which another run can rebuild; use $PINNED"
+  fi
+done < <(awk '
+  {
+    sub(/\r$/, "")
+    if (cont) {
+      line = line " " $0
+    } else {
+      if ($0 ~ /^[[:space:]]*#/) next
+      line = $0
+      start = NR
+    }
+    cont = sub(/\\$/, "", line)
+    if (cont) next
+    sub(/[[:space:]]#.*$/, "", line)
+    if (line ~ /[^[:space:]]/) printf "%d\t%s\n", start, line
+  }
+' "$FILE")
+
+if [ "$PINS" = 0 ]; then
+  fail 1 "no step reads steps.build.outputs.imageid, so nothing pins the image this run built"
+fi
+for PAIR in "docker run:$RUNS" "reachable-smoke.sh:$REACHABLE" "crash-boot-smoke.sh:$CRASH" "tag-image-sha.sh:$TAGS"; do
+  if [ "${PAIR##*:}" = 0 ]; then
+    fail 1 "no ${PAIR%:*} call found, so it was never checked"
+  fi
+done
+if [ "$FAILED" = 0 ]; then
+  echo "$FILE: $RUNS docker run, $REACHABLE reachable, $CRASH crash and $TAGS tag call(s) name the image by $PINNED"
+fi
+exit "$FAILED"

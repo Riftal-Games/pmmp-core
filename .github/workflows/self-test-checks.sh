@@ -58,6 +58,7 @@ run bash .github/workflows/check-build-timeout.sh "${WORKFLOWS[@]}"
 run bash .github/workflows/check-run-expressions.sh .github/workflows/docker-image-publish.yml
 run bash .github/workflows/check-support-permissions.sh .github/workflows/support.yml
 run bash .github/workflows/check-dockerfile-eol.sh
+run bash .github/workflows/check-pinned-image.sh .github/workflows/docker-image-ci.yml
 
 echo "found ${#TESTS[@]} self-test(s), ran the workflow checks"
 exit "$FAILED"

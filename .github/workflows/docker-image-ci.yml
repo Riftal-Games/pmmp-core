@@ -64,6 +64,7 @@ jobs:
     # 20-40 minute real build time while still failing loud well inside an
     # hour.
     - name: Build image for tag
+      id: build
       timeout-minutes: 55
       uses: docker/build-push-action@v7.3.0
       with:
@@ -87,6 +88,29 @@ jobs:
       timeout-minutes: 3
       run: docker buildx rm "${{ steps.buildx.outputs.name }}" > /dev/null 2>&1 || true
 
+    # The riftal runners share one docker daemon, so another run can rebuild
+    # the bare tag between this build and any step below (#164). Every later
+    # step runs the image by the ID this build reported, never by the tag,
+    # and check-pinned-image.sh fails the checks step if one stops doing so.
+    - name: Pin the image this run built
+      timeout-minutes: 2
+      shell: bash
+      env:
+        BUILT_ID: ${{ steps.build.outputs.imageid }}
+      run: |
+        set -euo pipefail
+        if ! [[ "$BUILT_ID" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+          echo "::error::the build reported image ID '$BUILT_ID', not a sha256 image ID"
+          exit 1
+        fi
+        REVISION="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$BUILT_ID")"
+        if [ "$REVISION" != "$GITHUB_SHA" ]; then
+          echo "::error::$BUILT_ID carries revision '$REVISION', not this run's $GITHUB_SHA"
+          exit 1
+        fi
+        echo "IMAGE_ID=$BUILT_ID" >> "$GITHUB_ENV"
+        echo "the steps below run $BUILT_ID, built from $GITHUB_SHA"
+
     # Hard rule 7 fixes the base image for everything we build. Every other step
     # here would pass unchanged on any base, so without this one a stage left on
     # an older release, or a revert of a single FROM, ships green and unnoticed.
@@ -97,7 +121,7 @@ jobs:
       run: |
         set -euo pipefail
 
-        ACTUAL="$(docker run --rm local-pocketmine-mp sh -c '. /etc/os-release && printf %s "$VERSION_ID"')"
+        ACTUAL="$(docker run --rm "$IMAGE_ID" sh -c '. /etc/os-release && printf %s "$VERSION_ID"')"
         echo "runtime stage reports Ubuntu $ACTUAL"
         if [ "$ACTUAL" != "$EXPECTED_UBUNTU" ]; then
           echo "::error::runtime stage is Ubuntu $ACTUAL, expected $EXPECTED_UBUNTU"
@@ -155,7 +179,7 @@ jobs:
       run: |
         LOG="$(mktemp)"
         STATUS=0
-        echo stop | docker run --rm -i -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" local-pocketmine-mp | tee "$LOG" || STATUS=$?
+        echo stop | docker run --rm -i -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" "$IMAGE_ID" | tee "$LOG" || STATUS=$?
         .github/workflows/check-no-crash-upload.sh "$LOG"
         [ "$STATUS" = 0 ] || exit "$STATUS"
 
@@ -165,7 +189,7 @@ jobs:
       run: |
         LOG="$(mktemp)"
         STATUS=0
-        echo stop | docker run --rm -i --user "$(id -u):$(id -g)" -v ./docker/test_data:/data -v ./docker/testsuite/create-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" local-pocketmine-mp | tee "$LOG" || STATUS=$?
+        echo stop | docker run --rm -i --user "$(id -u):$(id -g)" -v ./docker/test_data:/data -v ./docker/testsuite/create-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" "$IMAGE_ID" | tee "$LOG" || STATUS=$?
         .github/workflows/check-no-crash-upload.sh "$LOG"
         [ "$STATUS" = 0 ] || exit "$STATUS"
         test -f ./docker/test_data/plugin_data/data-test/create-data
@@ -181,7 +205,7 @@ jobs:
       run: |
         LOG="$(mktemp)"
         STATUS=0
-        echo stop | docker run --rm -i --user "$(id -u):$(id -g)" -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" local-pocketmine-mp | tee "$LOG" || STATUS=$?
+        echo stop | docker run --rm -i --user "$(id -u):$(id -g)" -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" "$IMAGE_ID" | tee "$LOG" || STATUS=$?
         .github/workflows/check-no-crash-upload.sh "$LOG"
         [ "$STATUS" = 0 ] || exit "$STATUS"
 
@@ -210,7 +234,7 @@ jobs:
       # on a self-hosted runner and on a local `/dev-stack` run. Tie both to
       # the run identity instead.
       run: |
-        .github/workflows/reachable-smoke.sh local-pocketmine-mp           "pm-reachable-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"           "$(( 20000 + (GITHUB_RUN_ID % 40000) ))"           riftal-reachable-probe
+        .github/workflows/reachable-smoke.sh "$IMAGE_ID" "pm-reachable-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" "$(( 20000 + (GITHUB_RUN_ID % 40000) ))" riftal-reachable-probe
 
     # A server that crashes while enabling a plugin SIGKILLs its own pid after
     # the restart throttle. As a container's pid 1 it survives that and hangs
@@ -219,11 +243,11 @@ jobs:
       timeout-minutes: 5
       shell: bash
       run: |
-        .github/workflows/crash-boot-smoke.sh local-pocketmine-mp "pm-crash-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ./docker/testsuite/crash-on-enable
+        .github/workflows/crash-boot-smoke.sh "$IMAGE_ID" "pm-crash-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ./docker/testsuite/crash-on-enable
 
     # Last, so only a build that passed every smoke step above gets a sha tag
     # riftal-infra can pin. The script tags only on a push to riftal.
     - name: Tag the image with its commit sha
       timeout-minutes: 2
       shell: bash
-      run: bash .github/workflows/tag-image-sha.sh local-pocketmine-mp
+      run: bash .github/workflows/tag-image-sha.sh local-pocketmine-mp "$IMAGE_ID"
