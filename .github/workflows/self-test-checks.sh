@@ -23,9 +23,15 @@ run() {
 }
 
 # Subdirectories count, and a *.selftest.* this cannot run fails the gate
-# rather than passing it unrun. __pycache__ holds the interpreter's own
-# compiled copies, never a self-test anyone wrote.
-mapfile -t TESTS < <(find docker .github/workflows -name __pycache__ -prune -o -type f -name '*.selftest.*' -print | sort)
+# rather than passing it unrun. Symlinks are listed so a dangling one fails
+# when run, and a directory find cannot read fails the gate outright.
+# __pycache__ holds the interpreter's own compiled copies, never a self-test
+# anyone wrote.
+if ! FOUND=$(find docker .github/workflows -name __pycache__ -prune -o ! -type d -name '*.selftest.*' -print | sort); then
+  echo "::error::find could not search every directory, so a self-test may be unlisted"
+  FAILED=1
+fi
+mapfile -t TESTS < <(printf '%s' "$FOUND")
 if [ "${#TESTS[@]}" = 0 ]; then
   echo "::error::no self-tests found, so no checking script was proven"
   exit 1
