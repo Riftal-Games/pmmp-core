@@ -61,8 +61,8 @@ expect 1 dangling-symlink-fails "$ROOT" "::error::bash docker/gone.selftest.sh f
 ROOT="$(tree empty)"
 expect 1 empty-tree-fails "$ROOT" "no self-tests found"
 
-# Root reads a chmod 000 directory anyway, so the case would pass for the
-# wrong reason.
+# Root bypasses the permission on a chmod 000 directory, so find never errors
+# and the case cannot exercise the path it names.
 if [ "$(id -u)" = 0 ]; then
   echo "skip unreadable-directory-fails: running as root, where chmod 000 does not stop find"
 else
