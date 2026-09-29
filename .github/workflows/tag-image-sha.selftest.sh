@@ -78,6 +78,8 @@ expect 1 short-sha "is not a full commit sha" no GITHUB_SHA=0123456
 expect 1 no-sha "is not a full commit sha" no GITHUB_SHA=
 expect 1 tag-lands-elsewhere "not the $ID this run built" yes STUB_TAG_ID=sha256:0000
 
+# The workflow's own expression text, matched verbatim, so it must not expand.
+# shellcheck disable=SC2016
 LABELLED="$(grep -nF 'org.opencontainers.image.revision=${{ github.sha }}' "$WORKFLOW" | cut -d: -f1)"
 CALLED="$(grep -nF 'bash .github/workflows/tag-image-sha.sh local-pocketmine-mp' "$WORKFLOW" | cut -d: -f1)"
 LAST_SMOKE="$(grep -nF '.github/workflows/crash-boot-smoke.sh local-pocketmine-mp' "$WORKFLOW" | cut -d: -f1)"
