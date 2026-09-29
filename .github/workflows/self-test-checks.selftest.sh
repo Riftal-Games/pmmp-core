@@ -48,6 +48,12 @@ if [ ! -e "$ROOT/ran-nested" ]; then
   FAILED=1
 fi
 
+ROOT="$(tree pycache)"
+echo 'exit 0' > "$ROOT/.github/workflows/ok.selftest.sh"
+mkdir "$ROOT/.github/workflows/__pycache__"
+echo 'compiled' > "$ROOT/.github/workflows/__pycache__/x.selftest.cpython-312.pyc"
+expect 0 pycache-ignored "$ROOT" "found 1 self-test(s)"
+
 ROOT="$(tree ruby)"
 echo 'exit 0' > "$ROOT/docker/ok.selftest.sh"
 echo 'exit 0' > "$ROOT/docker/x.selftest.rb"

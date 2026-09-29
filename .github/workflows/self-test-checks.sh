@@ -24,8 +24,9 @@ run() {
 }
 
 # Self-tests are found at any depth, and a *.selftest.* with an extension
-# that has no runner below fails the gate. Symlinks are listed so a dangling one fails
-# when run, and a directory find cannot read fails the gate outright.
+# that has no runner below fails the gate. Symlinks are listed so a dangling
+# one fails when run, and a directory find cannot read fails the gate
+# outright.
 # __pycache__ holds the interpreter's own compiled copies, never a self-test
 # anyone wrote.
 if ! FOUND=$(find docker .github/workflows -name __pycache__ -prune -o ! -type d -name '*.selftest.*' -print | sort); then
