@@ -106,6 +106,10 @@ expect 1 container-run "$DIR/container-run.yml"
 fixture tag-through-variable '    - run: IMAGE=local-pocketmine-mp; docker run --rm "$IMAGE_ID" true'
 expect 1 tag-through-variable "$DIR/tag-through-variable.yml"
 
+# Names neither the pin nor the bare tag, so only the missing pin can fail it.
+fixture run-without-pin '    - run: docker run --rm "$IMAGE" true'
+expect 1 run-without-pin "$DIR/run-without-pin.yml"
+
 fixture bare-latest '    - run: .github/workflows/reachable-smoke.sh local-pocketmine-mp:latest name 20000 motd'
 expect 1 bare-latest "$DIR/bare-latest.yml"
 
