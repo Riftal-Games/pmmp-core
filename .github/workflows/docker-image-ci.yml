@@ -73,6 +73,8 @@ jobs:
         load: true
         file: ${{ github.workspace }}/docker/Dockerfile
         tags: local-pocketmine-mp
+        labels: |
+          org.opencontainers.image.revision=${{ github.sha }}
         build-args: |
           GIT_HASH=${{ github.sha }}
         cache-from: type=gha
@@ -218,3 +220,10 @@ jobs:
       shell: bash
       run: |
         .github/workflows/crash-boot-smoke.sh local-pocketmine-mp "pm-crash-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ./docker/testsuite/crash-on-enable
+
+    # Last, so only a build that passed every smoke step above gets a sha tag
+    # riftal-infra can pin. The script tags only on a push to riftal.
+    - name: Tag the image with its commit sha
+      timeout-minutes: 2
+      shell: bash
+      run: bash .github/workflows/tag-image-sha.sh local-pocketmine-mp
