@@ -9,17 +9,18 @@ responder answers on the FIRST attempt with a specific, deliberately wrong
 pong: that is the only way to prove the assertion itself is what fails the
 run, rather than the absence of any reply at all.
 
-Every case here drives the real script over loopback UDP with its real CLI,
-against bytes built from the wire format documented in raknet-ping.py's own
-docstring, so this exercises exactly what CI runs rather than a
-reimplementation of it.
+Every case runs the real script with its real CLI against a fake responder
+on loopback UDP, so the parse and assertion path is the one CI runs, not a
+reimplementation of it. The timeouts are shorter than reachable-smoke.sh's,
+so the retry behaviour is not what CI sees. The missing-flags case is
+refused by argparse before any ping is sent.
 
 --expect-motd and --expect-protocol are both required unless
 --skip-identity-checks is given, so a dropped flag fails the run rather
 than quietly reducing it to a liveness ping. The last three cases assert
 that: omitting both with no opt-out is refused, the opt-out lets both be
-omitted, and the opt-out waives only those two comparisons and never the
-always-on structural checks (edition, non-empty MOTD, numeric protocol).
+omitted, and the opt-out still enforces the edition check. The opt-out's
+effect on the other structural checks has no case.
 """
 
 import importlib.util
@@ -151,7 +152,7 @@ def expect_pass(label, builder, extra_args):
     try:
         code, out, err = run_case(builder, extra_args)
     # A crash here is a failed case, not a harness bug.
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         bad(f"{label}: harness raised {e!r}")
         return
     if code == 0:
@@ -163,7 +164,7 @@ def expect_pass(label, builder, extra_args):
 def expect_fail(label, builder, needle, extra_args):
     try:
         code, out, err = run_case(builder, extra_args)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         bad(f"{label}: harness raised {e!r}")
         return
     combined = out + err
