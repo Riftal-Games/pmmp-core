@@ -56,6 +56,7 @@ WORKFLOWS=(.github/workflows/docker-image-ci.yml .github/workflows/docker-image-
 run bash .github/workflows/check-auto-report-flag.sh "${WORKFLOWS[@]}" .github/workflows/reachable-smoke.sh .github/workflows/crash-boot-smoke.sh
 run bash .github/workflows/check-build-timeout.sh "${WORKFLOWS[@]}"
 run bash .github/workflows/check-run-expressions.sh .github/workflows/docker-image-publish.yml
+run bash .github/workflows/check-support-permissions.sh .github/workflows/support.yml
 
 echo "found ${#TESTS[@]} self-test(s), ran the workflow checks"
 exit "$FAILED"

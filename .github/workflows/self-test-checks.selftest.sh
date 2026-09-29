@@ -14,7 +14,7 @@ FAILED=0
 tree() {
   local root="$DIR/$1" stub
   mkdir -p "$root/docker" "$root/.github/workflows"
-  for stub in check-auto-report-flag check-build-timeout check-run-expressions; do
+  for stub in check-auto-report-flag check-build-timeout check-run-expressions check-support-permissions; do
     echo 'exit 0' > "$root/.github/workflows/$stub.sh"
   done
   echo "$root"
