@@ -32,7 +32,13 @@ SCRIPT = SCRIPT_DIR / "raknet-ping.py"
 
 spec = importlib.util.spec_from_file_location("raknet_ping", SCRIPT)
 raknet_ping = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(raknet_ping)
+# An exit on import, even exit 0, would otherwise end this process before any
+# case runs, and a zero status would read as a pass.
+try:
+    spec.loader.exec_module(raknet_ping)
+except SystemExit as e:
+    print(f"::error::raknet-ping.py exited on import with {e.code!r}; its CLI must run only under __main__")
+    sys.exit(1)
 
 MAGIC = raknet_ping.MAGIC
 ID_UNCONNECTED_PONG = raknet_ping.ID_UNCONNECTED_PONG
