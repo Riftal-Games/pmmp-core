@@ -3,11 +3,20 @@
 Self-test for raknet-ping.py's pong-parsing and identity assertions.
 
 The REACHABLE check exists to prove a client can find and identify our
-server, not merely that something answered UDP. raknet-ping.py's retry loop
-hides a parse or assertion regression behind a slow timeout unless a fake
-responder answers on the FIRST attempt with a specific, deliberately wrong
-pong: that is the only way to prove the assertion itself is what fails the
-run, rather than the absence of any reply at all.
+server, not merely that something answered UDP. The two kinds of check fail
+differently, so each needs a fake responder that answers on the FIRST
+attempt with a specific, deliberately wrong pong.
+
+A parse check raises PongError, which the retry loop treats like silence and
+retries until the total timeout, ending in the same non-zero exit as no
+reply at all. Only the failure text naming the check proves the parse check
+fired rather than the pong going missing.
+
+An identity or structural assertion runs once, after a pong parses, and is
+not retried. With one lost, the script either accepts the wrong pong and
+exits 0, or exits non-zero without naming it because another assertion
+fired or the script crashed. The expect_fail case fails either way, since
+it needs the text naming the check as well as a non-zero exit.
 
 Every case runs the real script with its real CLI against a fake responder
 on loopback UDP, so the parse and assertion path is the one CI runs, not a
@@ -17,10 +26,10 @@ refused by argparse before any ping is sent.
 
 --expect-motd and --expect-protocol are both required unless
 --skip-identity-checks is given, so a dropped flag fails the run rather
-than quietly reducing it to a liveness ping. The last three cases assert
+than quietly reducing it to a liveness ping. The last six cases assert
 that: omitting both with no opt-out is refused, the opt-out lets both be
-omitted, and the opt-out still enforces the edition check. The opt-out's
-effect on the other structural checks has no case.
+omitted, and the opt-out still enforces the edition, empty-MOTD,
+numeric-protocol and field-count checks.
 """
 
 import importlib.util
@@ -55,7 +64,7 @@ VERSION = "1.26.50"
 # quietly skips one case (an unhandled exception, a case someone deleted the
 # call to but not the docstring for) and still prints a clean summary is the
 # exact failure this file exists to catch.
-EXPECTED_ASSERTIONS = 14
+EXPECTED_ASSERTIONS = 17
 
 FAILURES = 0
 PASSES = 0
@@ -149,9 +158,9 @@ IDENTITY_ARGS = ["--expect-motd", EXPECT_MOTD, "--expect-protocol", str(EXPECT_P
 
 
 def expect_pass(label, builder, extra_args):
+    # A crash in run_case is a failed case, not a harness bug.
     try:
         code, out, err = run_case(builder, extra_args)
-    # A crash here is a failed case, not a harness bug.
     except Exception as e:
         bad(f"{label}: harness raised {e!r}")
         return
@@ -264,9 +273,30 @@ expect_pass(
 )
 
 expect_fail(
-    "--skip-identity-checks still enforces the always-on structural checks",
+    "--skip-identity-checks still enforces the edition check",
     lambda ping_time: build_pong(ping_time, name=valid_server_name(edition="MCEE")),
     "edition field is 'MCEE'",
+    ["--skip-identity-checks"],
+)
+
+expect_fail(
+    "--skip-identity-checks still enforces the empty-MOTD check",
+    lambda ping_time: build_pong(ping_time, name=valid_server_name(motd="")),
+    "MOTD field is empty",
+    ["--skip-identity-checks"],
+)
+
+expect_fail(
+    "--skip-identity-checks still enforces the numeric-protocol check",
+    lambda ping_time: build_pong(ping_time, name=valid_server_name(protocol="abc")),
+    "expected a positive integer",
+    ["--skip-identity-checks"],
+)
+
+expect_fail(
+    "--skip-identity-checks still enforces the field-count check",
+    lambda ping_time: build_pong(ping_time, name="MCPE;RiftalGames"),
+    "need at least 4",
     ["--skip-identity-checks"],
 )
 
