@@ -38,6 +38,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Keep temp files off the shared /tmp
+        uses: ./.github/actions/runner-temp
+
       - name: Run PHP-CS-Fixer
         run: php-cs-fixer fix --dry-run --diff --ansi
 
@@ -49,6 +52,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+
+      - name: Keep temp files off the shared /tmp
+        uses: ./.github/actions/runner-temp
+        with:
+          php: false
 
       - name: Run ShellCheck
         uses: ludeeus/action-shellcheck@2.0.0
@@ -70,6 +78,9 @@ jobs:
         uses: shivammathur/setup-php@2.37.2
         with:
           php-version: 8.3
+
+      - name: Keep temp files off the shared /tmp
+        uses: ./.github/actions/runner-temp
 
       - name: Verify translations
         run: php .github/workflows/verify-translations.php ${{ github.workspace }}/resources/translations

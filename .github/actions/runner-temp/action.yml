@@ -1,25 +1,44 @@
 name: Keep temp files off the shared /tmp
-description: Points PHP's temp directory and opcache lock file at runner.temp for the rest of the job
+description: Points TMPDIR, and optionally PHP's temp directory and opcache lock file, at runner.temp for the rest of the job
 
-# The self-hosted runners share one /tmp tmpfs across every lane, and a
-# full one fails composer, PHPUnit and the server before any test runs.
-# TMPDIR reaches sys_get_temp_dir() and any later step's tool that honours
-# it, but no step that ran before this one, Setup PHP included. opcache
-# takes its lock file from opcache.lockfile_path alone.
+# The self-hosted runners share one /tmp tmpfs across every concurrent job,
+# and a full one fails mktemp, composer, PHPUnit and the server before any
+# test runs. TMPDIR reaches mktemp, Python's tempfile, sys_get_temp_dir()
+# and any later step's tool that honours it, but no step that ran before
+# this one, Setup PHP included. opcache takes its lock file from
+# opcache.lockfile_path alone.
+inputs:
+  php:
+    description: Also move PHP's opcache lock file and check PHP's temp dirs. Needs php on PATH.
+    default: "true"
+
 runs:
   using: composite
   steps:
     - name: Keep temp files off the shared /tmp
       shell: bash
+      env:
+        WITH_PHP: ${{ inputs.php }}
       run: |
         set -euo pipefail
-        mkdir -p "$RUNNER_TEMP/php.d"
-        echo "opcache.lockfile_path=\"$RUNNER_TEMP\"" > "$RUNNER_TEMP/php.d/tmp.ini"
-        # The leading colon keeps the binary's own scan directory as well.
-        export PHP_INI_SCAN_DIR=":$RUNNER_TEMP/php.d" TMPDIR="$RUNNER_TEMP"
-        echo "PHP_INI_SCAN_DIR=$PHP_INI_SCAN_DIR" >> "$GITHUB_ENV"
+        export TMPDIR="$RUNNER_TEMP"
         echo "TMPDIR=$TMPDIR" >> "$GITHUB_ENV"
-        for dir in "$(php -r 'echo sys_get_temp_dir();')" "$(php -r 'echo ini_get("opcache.lockfile_path");')"; do
+        probe="$(mktemp)"
+        dirs=("$(dirname "$probe")")
+        rm -f "$probe"
+        case "$WITH_PHP" in
+          true)
+            mkdir -p "$RUNNER_TEMP/php.d"
+            echo "opcache.lockfile_path=\"$RUNNER_TEMP\"" > "$RUNNER_TEMP/php.d/tmp.ini"
+            # The leading colon keeps the binary's own scan directory as well.
+            export PHP_INI_SCAN_DIR=":$RUNNER_TEMP/php.d"
+            echo "PHP_INI_SCAN_DIR=$PHP_INI_SCAN_DIR" >> "$GITHUB_ENV"
+            dirs+=("$(php -r 'echo sys_get_temp_dir();')" "$(php -r 'echo ini_get("opcache.lockfile_path");')")
+            ;;
+          false) ;;
+          *) echo "php input must be true or false, got: $WITH_PHP"; exit 1;;
+        esac
+        for dir in "${dirs[@]}"; do
           case "$dir" in
             "$RUNNER_TEMP") echo "temp dir: $dir";;
             *) echo "temp dir outside runner.temp: $dir"; exit 1;;
