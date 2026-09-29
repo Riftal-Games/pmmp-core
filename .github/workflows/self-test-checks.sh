@@ -10,7 +10,8 @@
 # even after a failure, so a single run reports all that are broken.
 set -uo pipefail
 
-cd "$(dirname "$0")/../.." || exit 1
+# SELFTEST_ROOT points this at a fixture tree, for self-test-checks.selftest.sh.
+cd "${SELFTEST_ROOT:-$(dirname "$0")/../..}" || exit 1
 FAILED=0
 
 run() {
@@ -22,8 +23,8 @@ run() {
   echo "::endgroup::"
 }
 
-# Subdirectories count, and a *.selftest.* this cannot run fails the gate
-# rather than passing it unrun. Symlinks are listed so a dangling one fails
+# Self-tests are found at any depth, and a *.selftest.* with an extension
+# that has no runner below fails the gate. Symlinks are listed so a dangling one fails
 # when run, and a directory find cannot read fails the gate outright.
 # __pycache__ holds the interpreter's own compiled copies, never a self-test
 # anyone wrote.
