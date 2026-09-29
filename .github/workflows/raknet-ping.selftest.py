@@ -13,8 +13,10 @@ reply at all. Only the failure text naming the check proves the parse check
 fired rather than the pong going missing.
 
 An identity or structural assertion runs once, after a pong parses, and is
-not retried. A lost one does not hide behind a timeout: the wrong pong is
-accepted and the script exits 0 at once, which fails the expect_fail case.
+not retried. With one lost, the script either accepts the wrong pong and
+exits 0, or exits non-zero without naming it because another assertion
+fired or the script crashed. The expect_fail case fails either way, since
+it needs the text naming the check as well as a non-zero exit.
 
 Every case runs the real script with its real CLI against a fake responder
 on loopback UDP, so the parse and assertion path is the one CI runs, not a
