@@ -4,6 +4,11 @@ on:
   issues:
     types: [labeled, unlabeled, reopened]
 
+# dessant/support-requests calls only the issues endpoints: comment, close,
+# reopen, lock, unlock, get and remove a label. There is no checkout step.
+permissions:
+  issues: write
+
 jobs:
   support:
     runs-on: [self-hosted, linux, riftal]
