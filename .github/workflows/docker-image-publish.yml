@@ -114,7 +114,7 @@ jobs:
       # an hour instead of holding the runner to the job's 360-minute default.
       - name: Build the image once, locally
         timeout-minutes: 55
-        uses: docker/build-push-action@v7.3.0
+        uses: docker/build-push-action@v7.4.0
         with:
           context: ${{ github.workspace }}
           push: false
