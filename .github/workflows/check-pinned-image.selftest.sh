@@ -145,7 +145,7 @@ expect 1 no-tag-call "$DIR/no-tag-call.yml"
 sed 's|tag-image-sha.sh local-pocketmine-mp "$IMAGE_ID"|tag-image-sha.sh "$IMAGE_ID"|' "$DIR/minimal.yml" > "$DIR/tag-without-repository.yml"
 expect 1 tag-without-repository "$DIR/tag-without-repository.yml"
 
-# The publish shape, docker tag in place of tag-image-sha.sh, satisfies the tag kind.
+# A docker tag in place of tag-image-sha.sh satisfies the tag kind.
 sed 's|bash .github/workflows/tag-image-sha.sh local-pocketmine-mp "$IMAGE_ID"|docker tag "$IMAGE_ID" "$IMAGE"|' "$DIR/minimal.yml" > "$DIR/docker-tag-only.yml"
 expect 0 docker-tag-only "$DIR/docker-tag-only.yml"
 

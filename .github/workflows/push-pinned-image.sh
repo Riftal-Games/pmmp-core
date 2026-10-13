@@ -4,9 +4,10 @@
 #
 # The push goes by name, and a daemon shared with other runs, as the
 # self-hosted runners have, lets another run retag the name between the tag
-# and the push. Nothing local can close that window, so the registry's copy is
-# what gets checked. The digest is read from this push's own output, never
-# from the tag, which a later push may already have moved.
+# and the push. Checking the registry's copy against the image ID detects a
+# push that went out under the wrong image. The digest is read from this
+# push's own output, never from the tag, which a later push may already have
+# moved.
 #
 # The classic image store's ID is the config digest of the manifest it
 # pushes. The containerd store's ID is the digest it pushes. Anything else
