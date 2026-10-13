@@ -3,6 +3,13 @@ name: 'Clean up stale PRs'
 on:
   workflow_dispatch:
 
+# actions/stale lists pull requests through the issues endpoint, which
+# refuses a token without issues: read. Issue staling is off, so every write
+# lands on a pull request, which pull-requests: write covers (#26).
+permissions:
+  issues: read
+  pull-requests: write
+
 jobs:
   stale:
     runs-on: ubuntu-latest
