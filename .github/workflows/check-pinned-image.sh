@@ -52,6 +52,10 @@ while IFS=$'\t' read -r NUM CODE; do
   if [[ "$CODE" == *steps.build.outputs.imageid* ]]; then
     PINS=$((PINS + 1))
   fi
+  # Outside the chain below, so a run or tag call on the same line cannot hide it.
+  if [[ "$CODE" =~ docker[[:space:]]+(image[[:space:]]+)?push([[:space:]]|$) ]]; then
+    fail "$NUM" "a bare docker push sends whatever the name points at by then; push through push-pinned-image.sh $PINNED"
+  fi
   KIND=
   if [[ "$CODE" =~ docker[[:space:]]+(container[[:space:]]+)?(run|create)([[:space:]]|$) ]]; then
     KIND=run
@@ -59,8 +63,6 @@ while IFS=$'\t' read -r NUM CODE; do
   elif [[ "$CODE" =~ docker[[:space:]]+(image[[:space:]]+)?tag([[:space:]]|$) ]]; then
     KIND=tag
     RETAGS=$((RETAGS + 1))
-  elif [[ "$CODE" =~ docker[[:space:]]+(image[[:space:]]+)?push([[:space:]]|$) ]]; then
-    fail "$NUM" "a bare docker push sends whatever the name points at by then; push through push-pinned-image.sh $PINNED"
   elif [[ "$CODE" == *push-pinned-image.sh* ]]; then
     KIND=push
     PUSHES=$((PUSHES + 1))

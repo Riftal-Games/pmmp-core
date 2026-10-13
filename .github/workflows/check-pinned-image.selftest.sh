@@ -178,6 +178,16 @@ expect 1 docker-image-push "$DIR/docker-image-push.yml"
 fixture docker-push-at-line-end '    - run: echo "$IMAGE_ID" && docker push'
 expect 1 docker-push-at-line-end "$DIR/docker-push-at-line-end.yml"
 
+# A run or tag call earlier on the line must not hide the push after it.
+fixture docker-push-and-tag-one-line '    - run: docker tag "$IMAGE_ID" "$IMAGE" && docker push "$IMAGE"'
+expect 1 docker-push-and-tag-one-line "$DIR/docker-push-and-tag-one-line.yml"
+
+fixture docker-push-semicolon-tag-one-line '    - run: docker tag "$IMAGE_ID" "$IMAGE"; docker push "$IMAGE"'
+expect 1 docker-push-semicolon-tag-one-line "$DIR/docker-push-semicolon-tag-one-line.yml"
+
+fixture docker-push-after-run-one-line '    - run: docker run --rm "$IMAGE_ID" true && docker push "$IMAGE"'
+expect 1 docker-push-after-run-one-line "$DIR/docker-push-after-run-one-line.yml"
+
 fixture comment-mentions-docker-push '    # docker push "$IMAGE" sends whatever the name points at'
 expect 0 comment-mentions-docker-push "$DIR/comment-mentions-docker-push.yml"
 
