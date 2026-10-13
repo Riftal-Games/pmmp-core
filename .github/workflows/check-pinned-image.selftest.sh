@@ -2,16 +2,16 @@
 # Fixtures are workflow text, so "$IMAGE_ID" in single quotes is meant literally.
 # shellcheck disable=SC2016
 #
-# Runs check-pinned-image.sh against docker-image-ci.yml itself and against
-# copies of it with one "$IMAGE_ID" at a time put back to the bare tag, so
-# every step that runs or tags the image, including one added later, is
-# proven to fail the check when it stops naming the pinned ID. Fixtures cover
+# Runs check-pinned-image.sh against docker-image-ci.yml and
+# docker-image-publish.yml themselves and against copies of each with one
+# "$IMAGE_ID" at a time put back to the bare tag, so every step that runs or
+# tags the image, including one added later, is proven to fail the check
+# when it stops naming the pinned ID. Fixtures cover
 # the comment and continuation handling the real file does not exercise.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 CHECK="$HERE/check-pinned-image.sh"
-WORKFLOW="$HERE/docker-image-ci.yml"
 DIR="$(mktemp -d)"
 trap 'rm -rf "$DIR"' EXIT
 FAILED=0
@@ -52,21 +52,27 @@ EOF
   printf '%s\n' "$2" >> "$DIR/$1.yml"
 }
 
-expect 0 docker-image-ci "$WORKFLOW"
+# <workflow name>:<fewest pinned lines>. Publish pins four docker run calls,
+# the two smoke scripts and four docker tag calls.
+for PAIR in docker-image-ci:7 docker-image-publish:10; do
+  NAME="${PAIR%:*}"
+  WORKFLOW="$HERE/$NAME.yml"
+  expect 0 "$NAME" "$WORKFLOW"
 
-tr -d '\r' < "$WORKFLOW" | sed 's/$/\r/' > "$DIR/crlf.yml"
-expect 0 docker-image-ci-crlf "$DIR/crlf.yml"
+  tr -d '\r' < "$WORKFLOW" | sed 's/$/\r/' > "$DIR/$NAME-crlf.yml"
+  expect 0 "$NAME-crlf" "$DIR/$NAME-crlf.yml"
 
-# Every "$IMAGE_ID" on a line that is not a comment, reverted one at a time.
-mapfile -t LINES < <(grep -nF -- "$PINNED" "$WORKFLOW" | grep -vE '^[0-9]+:[[:space:]]*#' | cut -d: -f1)
-if [ "${#LINES[@]}" -lt 7 ]; then
-  echo "FAIL reverts: found ${#LINES[@]} pinned line(s) in docker-image-ci.yml, expected at least 7"
-  FAILED=1
-fi
-for LINE in "${LINES[@]}"; do
-  awk -v n="$LINE" -v p="$PINNED" 'NR == n { i = index($0, p); $0 = substr($0, 1, i - 1) "local-pocketmine-mp" substr($0, i + length(p)) } { print }' \
-    "$WORKFLOW" > "$DIR/revert-$LINE.yml"
-  expect 1 "revert-line-$LINE" "$DIR/revert-$LINE.yml"
+  # Every "$IMAGE_ID" on a line that is not a comment, reverted one at a time.
+  mapfile -t LINES < <(grep -nF -- "$PINNED" "$WORKFLOW" | grep -vE '^[0-9]+:[[:space:]]*#' | cut -d: -f1)
+  if [ "${#LINES[@]}" -lt "${PAIR##*:}" ]; then
+    echo "FAIL reverts: found ${#LINES[@]} pinned line(s) in $NAME.yml, expected at least ${PAIR##*:}"
+    FAILED=1
+  fi
+  for LINE in "${LINES[@]}"; do
+    awk -v n="$LINE" -v p="$PINNED" 'NR == n { i = index($0, p); $0 = substr($0, 1, i - 1) "local-pocketmine-mp" substr($0, i + length(p)) } { print }' \
+      "$WORKFLOW" > "$DIR/$NAME-revert-$LINE.yml"
+    expect 1 "$NAME-revert-line-$LINE" "$DIR/$NAME-revert-$LINE.yml"
+  done
 done
 
 fixture minimal ''
@@ -138,6 +144,20 @@ expect 1 no-tag-call "$DIR/no-tag-call.yml"
 
 sed 's|tag-image-sha.sh local-pocketmine-mp "$IMAGE_ID"|tag-image-sha.sh "$IMAGE_ID"|' "$DIR/minimal.yml" > "$DIR/tag-without-repository.yml"
 expect 1 tag-without-repository "$DIR/tag-without-repository.yml"
+
+# The publish shape, docker tag in place of tag-image-sha.sh, satisfies the tag kind.
+sed 's|bash .github/workflows/tag-image-sha.sh local-pocketmine-mp "$IMAGE_ID"|docker tag "$IMAGE_ID" "$IMAGE"|' "$DIR/minimal.yml" > "$DIR/docker-tag-only.yml"
+expect 0 docker-tag-only "$DIR/docker-tag-only.yml"
+
+fixture bare-docker-tag '    - run: docker tag local-pocketmine-mp "$IMAGE"'
+expect 1 bare-docker-tag "$DIR/bare-docker-tag.yml"
+
+fixture bare-docker-image-tag '    - run: docker image tag local-pocketmine-mp "$IMAGE"'
+expect 1 bare-docker-image-tag "$DIR/bare-docker-image-tag.yml"
+
+# Names neither the pin nor the bare tag, so only the missing pin can fail it.
+fixture docker-tag-without-pin '    - run: docker tag "$SOURCE" "$IMAGE"'
+expect 1 docker-tag-without-pin "$DIR/docker-tag-without-pin.yml"
 
 expect 1 missing-file "$DIR/missing-file.yml"
 
