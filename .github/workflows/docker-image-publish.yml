@@ -257,37 +257,32 @@ jobs:
         run: |
           .github/workflows/crash-boot-smoke.sh "$IMAGE_ID" "pm-publish-crash-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ./docker/testsuite/crash-on-enable
 
+      # A push goes by name, so push-pinned-image.sh checks the registry holds
+      # $IMAGE_ID under the digest each push reported (#185).
+      # check-pinned-image.sh refuses a bare docker push.
       - name: Push tag
         shell: bash
         env:
           IMAGE: ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:${{ steps.tag-name.outputs.TAG_NAME }}
-        run: |
-          docker tag "$IMAGE_ID" "$IMAGE"
-          docker push "$IMAGE"
+        run: .github/workflows/push-pinned-image.sh "$IMAGE_ID" "$IMAGE"
 
       - name: Push major tag
         if: steps.channel.outputs.CHANNEL == 'stable'
         shell: bash
         env:
           IMAGE: ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:${{ steps.version.outputs.MAJOR }}
-        run: |
-          docker tag "$IMAGE_ID" "$IMAGE"
-          docker push "$IMAGE"
+        run: .github/workflows/push-pinned-image.sh "$IMAGE_ID" "$IMAGE"
 
       - name: Push minor tag
         if: steps.channel.outputs.CHANNEL == 'stable'
         shell: bash
         env:
           IMAGE: ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:${{ steps.version.outputs.MINOR }}
-        run: |
-          docker tag "$IMAGE_ID" "$IMAGE"
-          docker push "$IMAGE"
+        run: .github/workflows/push-pinned-image.sh "$IMAGE_ID" "$IMAGE"
 
       - name: Push latest tag
         if: steps.channel.outputs.CHANNEL == 'stable'
         shell: bash
         env:
           IMAGE: ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:latest
-        run: |
-          docker tag "$IMAGE_ID" "$IMAGE"
-          docker push "$IMAGE"
+        run: .github/workflows/push-pinned-image.sh "$IMAGE_ID" "$IMAGE"
