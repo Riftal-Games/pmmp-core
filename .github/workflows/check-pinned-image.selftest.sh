@@ -84,8 +84,16 @@ fixture bare-under-commented-pin '    - run: |
         docker run --rm local-pocketmine-mp true'
 expect 1 bare-under-commented-pin "$DIR/bare-under-commented-pin.yml"
 
-fixture pin-only-in-trailing-comment '    - run: docker run --rm local-pocketmine-mp true # "$IMAGE_ID"'
+# Names neither the pin nor the bare tag outside the comment, so only the
+# trailing-comment strip can fail it.
+fixture pin-only-in-trailing-comment '    - run: docker run --rm "$IMAGE" true # "$IMAGE_ID"'
 expect 1 pin-only-in-trailing-comment "$DIR/pin-only-in-trailing-comment.yml"
+
+# A comment line ending in a backslash must not swallow the next real line.
+fixture continued-comment-over-bare-run '    - run: |
+        # docker run --rm "$IMAGE_ID" true \
+        docker run --rm local-pocketmine-mp true'
+expect 1 continued-comment-over-bare-run "$DIR/continued-comment-over-bare-run.yml"
 
 fixture pin-in-env-bare-image '    - run: docker run --rm -e ID="$IMAGE_ID" local-pocketmine-mp true'
 expect 1 pin-in-env-bare-image "$DIR/pin-in-env-bare-image.yml"
@@ -109,6 +117,12 @@ expect 1 tag-through-variable "$DIR/tag-through-variable.yml"
 # Names neither the pin nor the bare tag, so only the missing pin can fail it.
 fixture run-without-pin '    - run: docker run --rm "$IMAGE" true'
 expect 1 run-without-pin "$DIR/run-without-pin.yml"
+
+fixture reachable-without-pin '    - run: .github/workflows/reachable-smoke.sh "$IMAGE" name 20000 motd'
+expect 1 reachable-without-pin "$DIR/reachable-without-pin.yml"
+
+fixture crash-without-pin '    - run: .github/workflows/crash-boot-smoke.sh "$IMAGE" name ./plugins'
+expect 1 crash-without-pin "$DIR/crash-without-pin.yml"
 
 fixture bare-latest '    - run: .github/workflows/reachable-smoke.sh local-pocketmine-mp:latest name 20000 motd'
 expect 1 bare-latest "$DIR/bare-latest.yml"
