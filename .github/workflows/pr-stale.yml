@@ -30,4 +30,16 @@ jobs:
           only-labels: "Status: Waiting on Author"
           close-pr-label: "Resolution: Abandoned"
           exempt-all-assignees: true
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            const t = {...context.repo, issue_number: 176};
+            await github.rest.pulls.get({...context.repo, pull_number: 176});
+            await github.paginate(github.rest.issues.listEvents, t);
+            await github.rest.issues.listComments(t);
+            await github.rest.issues.addLabels({...t, labels: ['hardening']});
+            await github.rest.issues.removeLabel({...t, name: 'hardening'});
+            await github.rest.issues.createComment({...t, body: 'Probe for #26: createComment from a token holding only issues read and pull-requests write.'});
+            await github.rest.issues.update({...t, state: 'open'});
+            console.log('every stale write endpoint returned 2xx');
           
