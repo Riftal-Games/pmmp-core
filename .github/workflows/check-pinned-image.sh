@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Fails unless every step of docker-image-ci.yml that runs or tags the image
+# Fails unless every step of an image workflow that runs or tags the image
 # names it by "$IMAGE_ID", the ID the build step reported, and nothing names
 # the bare tag but the build's own tags: line and the sha tag's repository.
+# Run on docker-image-ci.yml and docker-image-publish.yml.
 # The riftal runners share one docker daemon, so the bare tag is whatever
 # image any run built last, and a smoke verdict on it may be a verdict on
 # someone else's build (#164).
@@ -9,7 +10,8 @@
 # Comments are skipped, whole-line and trailing, so a commented-out line can
 # neither satisfy the check nor trip it. Continued lines are joined first.
 # Each kind of step must appear at least once, so a renamed script fails here
-# rather than passing unchecked.
+# rather than passing unchecked. CI tags through tag-image-sha.sh and publish
+# through docker tag, so either one satisfies the tag kind.
 #
 # Usage: check-pinned-image.sh <workflow file>
 set -uo pipefail
@@ -34,6 +36,7 @@ RUNS=0
 REACHABLE=0
 CRASH=0
 TAGS=0
+RETAGS=0
 
 fail() {
   echo "::error file=$FILE,line=$1::$2"
@@ -48,6 +51,9 @@ while IFS=$'\t' read -r NUM CODE; do
   if [[ "$CODE" =~ docker[[:space:]]+(container[[:space:]]+)?(run|create)([[:space:]]|$) ]]; then
     KIND=run
     RUNS=$((RUNS + 1))
+  elif [[ "$CODE" =~ docker[[:space:]]+(image[[:space:]]+)?tag([[:space:]]|$) ]]; then
+    KIND=tag
+    RETAGS=$((RETAGS + 1))
   elif [[ "$CODE" == *reachable-smoke.sh* ]]; then
     KIND=reachable
     REACHABLE=$((REACHABLE + 1))
@@ -88,12 +94,12 @@ done < <(awk '
 if [ "$PINS" = 0 ]; then
   fail 1 "no step reads steps.build.outputs.imageid, so nothing pins the image this run built"
 fi
-for PAIR in "docker run:$RUNS" "reachable-smoke.sh:$REACHABLE" "crash-boot-smoke.sh:$CRASH" "tag-image-sha.sh:$TAGS"; do
+for PAIR in "docker run:$RUNS" "reachable-smoke.sh:$REACHABLE" "crash-boot-smoke.sh:$CRASH" "tag-image-sha.sh or docker tag:$((TAGS + RETAGS))"; do
   if [ "${PAIR##*:}" = 0 ]; then
     fail 1 "no ${PAIR%:*} call found, so it was never checked"
   fi
 done
 if [ "$FAILED" = 0 ]; then
-  echo "$FILE: $RUNS docker run, $REACHABLE reachable, $CRASH crash and $TAGS tag call(s) name the image by $PINNED"
+  echo "$FILE: $RUNS docker run, $REACHABLE reachable, $CRASH crash, $TAGS tag-image-sha.sh and $RETAGS docker tag call(s) name the image by $PINNED"
 fi
 exit "$FAILED"

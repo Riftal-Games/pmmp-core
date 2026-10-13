@@ -59,6 +59,7 @@ run bash .github/workflows/check-run-expressions.sh .github/workflows/docker-ima
 run bash .github/workflows/check-support-permissions.sh .github/workflows/support.yml
 run bash .github/workflows/check-dockerfile-eol.sh
 run bash .github/workflows/check-pinned-image.sh .github/workflows/docker-image-ci.yml
+run bash .github/workflows/check-pinned-image.sh .github/workflows/docker-image-publish.yml
 
 echo "found ${#TESTS[@]} self-test(s), ran the workflow checks"
 exit "$FAILED"

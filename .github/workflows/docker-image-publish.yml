@@ -113,6 +113,7 @@ jobs:
       # 20-40 minute real build time, while a wedged build fails loud well inside
       # an hour instead of holding the runner to the job's 360-minute default.
       - name: Build the image once, locally
+        id: build
         timeout-minutes: 55
         uses: docker/build-push-action@v7.3.0
         with:
@@ -121,8 +122,36 @@ jobs:
           load: true
           file: ${{ github.workspace }}/docker/Dockerfile
           tags: local-pocketmine-mp
+          labels: |
+            org.opencontainers.image.revision=${{ steps.tagged-commit.outputs.SHA }}
           build-args: |
             GIT_HASH=${{ steps.tagged-commit.outputs.SHA }}
+
+      # Every later step runs and tags the image by the ID this build reported,
+      # never by the bare tag, so publish obeys the same check-pinned-image.sh
+      # rule as docker-image-ci.yml. On a daemon shared with other runs, as the
+      # self-hosted runners have (#180), another run can rebuild the bare tag
+      # between this build and any step below (#167). The checks step fails if
+      # a step stops naming the ID.
+      - name: Pin the image this run built
+        timeout-minutes: 2
+        shell: bash
+        env:
+          BUILT_ID: ${{ steps.build.outputs.imageid }}
+          TAGGED_SHA: ${{ steps.tagged-commit.outputs.SHA }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$BUILT_ID" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::the build reported image ID '$BUILT_ID', not a sha256 image ID"
+            exit 1
+          fi
+          REVISION="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$BUILT_ID")"
+          if [ "$REVISION" != "$TAGGED_SHA" ]; then
+            echo "::error::$BUILT_ID carries revision '$REVISION', not the tagged commit $TAGGED_SHA"
+            exit 1
+          fi
+          echo "IMAGE_ID=$BUILT_ID" >> "$GITHUB_ENV"
+          echo "the steps below run and push $BUILT_ID, built from $TAGGED_SHA"
 
       # Hard rule 7 fixes the base image for everything we build. Mirrors the
       # check in docker-image-ci.yml so a release built from a ref that never
@@ -135,7 +164,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          ACTUAL="$(docker run --rm local-pocketmine-mp sh -c '. /etc/os-release && printf %s "$VERSION_ID"')"
+          ACTUAL="$(docker run --rm "$IMAGE_ID" sh -c '. /etc/os-release && printf %s "$VERSION_ID"')"
           echo "runtime stage reports Ubuntu $ACTUAL"
           if [ "$ACTUAL" != "$EXPECTED_UBUNTU" ]; then
             echo "::error::runtime stage is Ubuntu $ACTUAL, expected $EXPECTED_UBUNTU"
@@ -169,7 +198,7 @@ jobs:
         run: |
           LOG="$(mktemp)"
           STATUS=0
-          echo stop | docker run --rm -i -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" local-pocketmine-mp | tee "$LOG" || STATUS=$?
+          echo stop | docker run --rm -i -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" "$IMAGE_ID" | tee "$LOG" || STATUS=$?
           .github/workflows/check-no-crash-upload.sh "$LOG"
           [ "$STATUS" = 0 ] || exit "$STATUS"
 
@@ -179,7 +208,7 @@ jobs:
         run: |
           LOG="$(mktemp)"
           STATUS=0
-          echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/create-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" local-pocketmine-mp | tee "$LOG" || STATUS=$?
+          echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/create-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" "$IMAGE_ID" | tee "$LOG" || STATUS=$?
           .github/workflows/check-no-crash-upload.sh "$LOG"
           [ "$STATUS" = 0 ] || exit "$STATUS"
           test -f ./docker/test_data/plugin_data/data-test/create-data
@@ -195,7 +224,7 @@ jobs:
         run: |
           LOG="$(mktemp)"
           STATUS=0
-          echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" local-pocketmine-mp | tee "$LOG" || STATUS=$?
+          echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" "$IMAGE_ID" | tee "$LOG" || STATUS=$?
           .github/workflows/check-no-crash-upload.sh "$LOG"
           [ "$STATUS" = 0 ] || exit "$STATUS"
 
@@ -217,7 +246,7 @@ jobs:
         timeout-minutes: 10
         shell: bash
         run: |
-          .github/workflows/reachable-smoke.sh local-pocketmine-mp             "pm-publish-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"             "$(( 20000 + (GITHUB_RUN_ID % 40000) ))"             riftal-publish-probe
+          .github/workflows/reachable-smoke.sh "$IMAGE_ID" "pm-publish-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" "$(( 20000 + (GITHUB_RUN_ID % 40000) ))" riftal-publish-probe
 
       # A server that crashes while enabling a plugin SIGKILLs its own pid after
       # the restart throttle. As a container's pid 1 it survives that and hangs
@@ -226,14 +255,14 @@ jobs:
         timeout-minutes: 5
         shell: bash
         run: |
-          .github/workflows/crash-boot-smoke.sh local-pocketmine-mp "pm-publish-crash-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ./docker/testsuite/crash-on-enable
+          .github/workflows/crash-boot-smoke.sh "$IMAGE_ID" "pm-publish-crash-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ./docker/testsuite/crash-on-enable
 
       - name: Push tag
         shell: bash
         env:
           IMAGE: ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:${{ steps.tag-name.outputs.TAG_NAME }}
         run: |
-          docker tag local-pocketmine-mp "$IMAGE"
+          docker tag "$IMAGE_ID" "$IMAGE"
           docker push "$IMAGE"
 
       - name: Push major tag
@@ -242,7 +271,7 @@ jobs:
         env:
           IMAGE: ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:${{ steps.version.outputs.MAJOR }}
         run: |
-          docker tag local-pocketmine-mp "$IMAGE"
+          docker tag "$IMAGE_ID" "$IMAGE"
           docker push "$IMAGE"
 
       - name: Push minor tag
@@ -251,7 +280,7 @@ jobs:
         env:
           IMAGE: ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:${{ steps.version.outputs.MINOR }}
         run: |
-          docker tag local-pocketmine-mp "$IMAGE"
+          docker tag "$IMAGE_ID" "$IMAGE"
           docker push "$IMAGE"
 
       - name: Push latest tag
@@ -260,5 +289,5 @@ jobs:
         env:
           IMAGE: ghcr.io/${{ steps.docker-repo-name.outputs.NAME }}:latest
         run: |
-          docker tag local-pocketmine-mp "$IMAGE"
+          docker tag "$IMAGE_ID" "$IMAGE"
           docker push "$IMAGE"
