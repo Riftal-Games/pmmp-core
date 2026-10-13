@@ -127,11 +127,12 @@ jobs:
           build-args: |
             GIT_HASH=${{ steps.tagged-commit.outputs.SHA }}
 
-      # The riftal runners share one docker daemon, so another run can rebuild
-      # the bare tag between this build and any step below (#167). Every later
-      # step runs and tags the image by the ID this build reported, never by
-      # the tag, and check-pinned-image.sh fails the checks step if one stops
-      # doing so.
+      # Every later step runs and tags the image by the ID this build reported,
+      # never by the bare tag, so publish obeys the same check-pinned-image.sh
+      # rule as docker-image-ci.yml. On a daemon shared with other runs, as the
+      # self-hosted runners have (#180), another run can rebuild the bare tag
+      # between this build and any step below (#167). The checks step fails if
+      # a step stops naming the ID.
       - name: Pin the image this run built
         timeout-minutes: 2
         shell: bash
@@ -245,7 +246,7 @@ jobs:
         timeout-minutes: 10
         shell: bash
         run: |
-          .github/workflows/reachable-smoke.sh "$IMAGE_ID"             "pm-publish-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"             "$(( 20000 + (GITHUB_RUN_ID % 40000) ))"             riftal-publish-probe
+          .github/workflows/reachable-smoke.sh "$IMAGE_ID" "pm-publish-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" "$(( 20000 + (GITHUB_RUN_ID % 40000) ))" riftal-publish-probe
 
       # A server that crashes while enabling a plugin SIGKILLs its own pid after
       # the restart throttle. As a container's pid 1 it survives that and hangs

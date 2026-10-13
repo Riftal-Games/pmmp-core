@@ -6,8 +6,8 @@
 # docker-image-publish.yml themselves and against copies of each with one
 # "$IMAGE_ID" at a time put back to the bare tag, so every step that runs or
 # tags the image, including one added later, is proven to fail the check
-# when it stops naming the pinned ID. Fixtures cover
-# the comment and continuation handling the real file does not exercise.
+# when it stops naming the pinned ID. Fixtures cover the comment and
+# continuation handling the real file does not exercise.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
