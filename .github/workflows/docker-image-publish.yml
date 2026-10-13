@@ -115,7 +115,7 @@ jobs:
       - name: Build the image once, locally
         id: build
         timeout-minutes: 55
-        uses: docker/build-push-action@v7.3.0
+        uses: docker/build-push-action@v7.4.0
         with:
           context: ${{ github.workspace }}
           push: false
