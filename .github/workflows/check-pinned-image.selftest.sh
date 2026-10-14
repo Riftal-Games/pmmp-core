@@ -243,6 +243,29 @@ expect 0 buildx-output-push-false "$DIR/buildx-output-push-false.yml"
 fixture buildx-output-push-0 '    - run: docker buildx build -o type=image,name="$IMAGE",push=0 .'
 expect 0 buildx-output-push-0 "$DIR/buildx-output-push-0.yml"
 
+# A quoted value is its unquoted value, and push= is a key only inside an
+# output value, never the tail of an environment variable's name.
+fixture buildx-output-push-quoted-false '    - run: docker buildx build -o type=image,name="$IMAGE",push="false" .'
+expect 0 buildx-output-push-quoted-false "$DIR/buildx-output-push-quoted-false.yml"
+
+fixture buildx-output-push-quoted-0 "    - run: docker buildx build -o type=image,name=\"\$IMAGE\",push='0' ."
+expect 0 buildx-output-push-quoted-0 "$DIR/buildx-output-push-quoted-0.yml"
+
+for PAIR in no-push-1:NO_PUSH=1 no-push-true:NO_PUSH=true push-empty:PUSH=; do
+  NAME="env-${PAIR%%:*}"
+  fixture "$NAME" "    - run: ${PAIR#*:} make"
+  expect 0 "$NAME" "$DIR/$NAME.yml"
+done
+
+fixture buildx-output-quoted-word-push-1 '    - run: echo "$IMAGE_ID"; docker buildx build -o "type=image,name=$IMAGE,push=1" .'
+expect 1 buildx-output-quoted-word-push-1 "$DIR/buildx-output-quoted-word-push-1.yml"
+
+fixture buildx-output-push-first '    - run: echo "$IMAGE_ID"; docker buildx build -o push=1,type=image .'
+expect 1 buildx-output-push-first "$DIR/buildx-output-push-first.yml"
+
+fixture bake-set-output-push-empty "    - run: echo \"\$IMAGE_ID\"; docker buildx bake --set '*.output=push='"
+expect 1 bake-set-output-push-empty "$DIR/bake-set-output-push-empty.yml"
+
 fixture compose-push '    - run: echo "$IMAGE_ID"; docker compose push'
 expect 1 compose-push "$DIR/compose-push.yml"
 

@@ -51,7 +51,13 @@ BUILDX="${DOCKER}buildx${OPTS}[[:space:]]+"
 COMPOSE="(${DOCKER}compose|docker-compose)${OPTS}[[:space:]]+"
 # Buildkit reads push= with strconv.ParseBool and an empty value as true, so
 # 1, t and push= push as surely as true does. Matched on the lowercased line.
-PUSH_TRUE="push=[\"']?(1|t)?[\"']?([,[:space:]\"';&|]|$)"
+# push= counts only as a key of an -o, --output or bake output= value, so
+# NO_PUSH=1 or PUSH= before a command is not read as one. A quoted value is
+# read as its unquoted value; a quote after it closes the enclosing word.
+PUSH_KEY="(,|(^|[[:space:]])(-o|--output)(=|[[:space:]]+)|output=)[\"']?push="
+BOOL="(1|t|true)?"
+END="[,[:space:];&|]|$"
+PUSH_TRUE="${PUSH_KEY}(\"${BOOL}\"|${Q}${BOOL}${Q}|${BOOL})(${END}|[\"']($END))"
 FAILED=0
 PINS=0
 RUNS=0
@@ -78,7 +84,7 @@ while IFS=$'\t' read -r NUM CODE; do
     fail "$NUM" "docker compose push sends whatever each service's image name points at by then; push through push-pinned-image.sh $PINNED"
   fi
   LOWER="${CODE,,}"
-  if [[ "$CODE" =~ (^|[[:space:]])--push([[:space:]=]|$) ]] || [[ "$LOWER" == *push=true* ]] || [[ "$LOWER" =~ $PUSH_TRUE ]] || [[ "$CODE" == *type=registry* ]]; then
+  if [[ "$CODE" =~ (^|[[:space:]])--push([[:space:]=]|$) ]] || [[ "$LOWER" =~ $PUSH_TRUE ]] || [[ "$CODE" == *type=registry* ]]; then
     fail "$NUM" "a build that pushes sends whatever it built by name; build with push: false and push through push-pinned-image.sh $PINNED"
   fi
   if [[ "$CODE" =~ ${BUILDX}imagetools[[:space:]]+create([[:space:]]|$) ]]; then
