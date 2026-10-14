@@ -45,7 +45,8 @@ established is there, not here.
 
 Tiers are defined in
 [What "tier" means here](player-identity-proxied-vs-direct.md#what-tier-means-here),
-borrowed from `riftal-infra/docs/waterdogpe-protocol-2168.md:26-167`: tier 1 is declared
+borrowed from `riftal-infra/docs/waterdogpe-protocol-support.md`, section "Evidence, in
+three tiers": tier 1 is declared
 in source and read at a pinned commit, tier 2 is present in a downloadable checksummed
 artifact, tier 3 is observed carrying a real client.
 
@@ -178,7 +179,7 @@ genuinely necessary.
 
 Tier 1 throughout, from the code paths above and from the derivation document's.
 `xbox-auth=false` in every row, which is the configuration M0 specifies
-(`../../docs/roadmap.md:34`).
+(`docs/roadmap.md` in riftal-pm, section "M0: Joinable").
 
 | Topology | Player signed into XBL | `AuthenticationType` | `authenticated` | XUID the fork keeps | UUID the fork keeps | Disk key |
 |---|---|---|---|---|---|---|
