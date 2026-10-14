@@ -11,7 +11,11 @@
 # neither satisfy the check nor trip it. Continued lines are joined first.
 # Each kind of step must appear at least once, so a renamed script fails here
 # rather than passing unchecked. CI tags through tag-image-sha.sh and publish
-# through docker tag, so either one satisfies the tag kind.
+# through push-pinned-image.sh, so either one, or docker tag, satisfies the
+# tag kind.
+#
+# A bare docker push fails: it pushes whatever the name points at by then,
+# and only push-pinned-image.sh checks that the registry got $IMAGE_ID (#185).
 #
 # Usage: check-pinned-image.sh <workflow file>
 set -uo pipefail
@@ -37,6 +41,7 @@ REACHABLE=0
 CRASH=0
 TAGS=0
 RETAGS=0
+PUSHES=0
 
 fail() {
   echo "::error file=$FILE,line=$1::$2"
@@ -47,6 +52,10 @@ while IFS=$'\t' read -r NUM CODE; do
   if [[ "$CODE" == *steps.build.outputs.imageid* ]]; then
     PINS=$((PINS + 1))
   fi
+  # Outside the chain below, so a run or tag call on the same line cannot hide it.
+  if [[ "$CODE" =~ docker[[:space:]]+(image[[:space:]]+)?push([[:space:]]|$) ]]; then
+    fail "$NUM" "a bare docker push sends whatever the name points at by then; push through push-pinned-image.sh $PINNED"
+  fi
   KIND=
   if [[ "$CODE" =~ docker[[:space:]]+(container[[:space:]]+)?(run|create)([[:space:]]|$) ]]; then
     KIND=run
@@ -54,6 +63,9 @@ while IFS=$'\t' read -r NUM CODE; do
   elif [[ "$CODE" =~ docker[[:space:]]+(image[[:space:]]+)?tag([[:space:]]|$) ]]; then
     KIND=tag
     RETAGS=$((RETAGS + 1))
+  elif [[ "$CODE" == *push-pinned-image.sh* ]]; then
+    KIND=push
+    PUSHES=$((PUSHES + 1))
   elif [[ "$CODE" == *reachable-smoke.sh* ]]; then
     KIND=reachable
     REACHABLE=$((REACHABLE + 1))
@@ -94,12 +106,12 @@ done < <(awk '
 if [ "$PINS" = 0 ]; then
   fail 1 "no step reads steps.build.outputs.imageid, so nothing pins the image this run built"
 fi
-for PAIR in "docker run:$RUNS" "reachable-smoke.sh:$REACHABLE" "crash-boot-smoke.sh:$CRASH" "tag-image-sha.sh or docker tag:$((TAGS + RETAGS))"; do
+for PAIR in "docker run:$RUNS" "reachable-smoke.sh:$REACHABLE" "crash-boot-smoke.sh:$CRASH" "tag-image-sha.sh, docker tag or push-pinned-image.sh:$((TAGS + RETAGS + PUSHES))"; do
   if [ "${PAIR##*:}" = 0 ]; then
     fail 1 "no ${PAIR%:*} call found, so it was never checked"
   fi
 done
 if [ "$FAILED" = 0 ]; then
-  echo "$FILE: $RUNS docker run, $REACHABLE reachable, $CRASH crash, $TAGS tag-image-sha.sh and $RETAGS docker tag call(s) name the image by $PINNED"
+  echo "$FILE: $RUNS docker run, $REACHABLE reachable, $CRASH crash, $TAGS tag-image-sha.sh, $RETAGS docker tag and $PUSHES push-pinned-image.sh call(s) name the image by $PINNED"
 fi
 exit "$FAILED"

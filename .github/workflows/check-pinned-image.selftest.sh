@@ -53,7 +53,7 @@ EOF
 }
 
 # <workflow name>:<fewest pinned lines>. Publish pins four docker run calls,
-# the two smoke scripts and four docker tag calls.
+# the two smoke scripts and four push-pinned-image.sh calls.
 for PAIR in docker-image-ci:7 docker-image-publish:10; do
   NAME="${PAIR%:*}"
   WORKFLOW="$HERE/$NAME.yml"
@@ -145,7 +145,7 @@ expect 1 no-tag-call "$DIR/no-tag-call.yml"
 sed 's|tag-image-sha.sh local-pocketmine-mp "$IMAGE_ID"|tag-image-sha.sh "$IMAGE_ID"|' "$DIR/minimal.yml" > "$DIR/tag-without-repository.yml"
 expect 1 tag-without-repository "$DIR/tag-without-repository.yml"
 
-# The publish shape, docker tag in place of tag-image-sha.sh, satisfies the tag kind.
+# A docker tag in place of tag-image-sha.sh satisfies the tag kind.
 sed 's|bash .github/workflows/tag-image-sha.sh local-pocketmine-mp "$IMAGE_ID"|docker tag "$IMAGE_ID" "$IMAGE"|' "$DIR/minimal.yml" > "$DIR/docker-tag-only.yml"
 expect 0 docker-tag-only "$DIR/docker-tag-only.yml"
 
@@ -158,6 +158,38 @@ expect 1 bare-docker-image-tag "$DIR/bare-docker-image-tag.yml"
 # Names neither the pin nor the bare tag, so only the missing pin can fail it.
 fixture docker-tag-without-pin '    - run: docker tag "$SOURCE" "$IMAGE"'
 expect 1 docker-tag-without-pin "$DIR/docker-tag-without-pin.yml"
+
+sed 's|bash .github/workflows/tag-image-sha.sh local-pocketmine-mp "$IMAGE_ID"|.github/workflows/push-pinned-image.sh "$IMAGE_ID" "$IMAGE"|' "$DIR/minimal.yml" > "$DIR/push-script-only.yml"
+expect 0 push-script-only "$DIR/push-script-only.yml"
+
+# Names neither the pin nor the bare tag, so only the missing pin can fail it.
+fixture push-script-without-pin '    - run: .github/workflows/push-pinned-image.sh "$SOURCE" "$IMAGE"'
+expect 1 push-script-without-pin "$DIR/push-script-without-pin.yml"
+
+# Each names the pin, so only the bare push rule can fail it.
+fixture docker-push-after-pinned-tag '    - run: |
+        docker tag "$IMAGE_ID" "$IMAGE"
+        docker push "$IMAGE"'
+expect 1 docker-push-after-pinned-tag "$DIR/docker-push-after-pinned-tag.yml"
+
+fixture docker-image-push '    - run: echo "$IMAGE_ID"; docker image push "$IMAGE"'
+expect 1 docker-image-push "$DIR/docker-image-push.yml"
+
+fixture docker-push-at-line-end '    - run: echo "$IMAGE_ID" && docker push'
+expect 1 docker-push-at-line-end "$DIR/docker-push-at-line-end.yml"
+
+# A run or tag call earlier on the line must not hide the push after it.
+fixture docker-push-and-tag-one-line '    - run: docker tag "$IMAGE_ID" "$IMAGE" && docker push "$IMAGE"'
+expect 1 docker-push-and-tag-one-line "$DIR/docker-push-and-tag-one-line.yml"
+
+fixture docker-push-semicolon-tag-one-line '    - run: docker tag "$IMAGE_ID" "$IMAGE"; docker push "$IMAGE"'
+expect 1 docker-push-semicolon-tag-one-line "$DIR/docker-push-semicolon-tag-one-line.yml"
+
+fixture docker-push-after-run-one-line '    - run: docker run --rm "$IMAGE_ID" true && docker push "$IMAGE"'
+expect 1 docker-push-after-run-one-line "$DIR/docker-push-after-run-one-line.yml"
+
+fixture comment-mentions-docker-push '    # docker push "$IMAGE" sends whatever the name points at'
+expect 0 comment-mentions-docker-push "$DIR/comment-mentions-docker-push.yml"
 
 expect 1 missing-file "$DIR/missing-file.yml"
 
