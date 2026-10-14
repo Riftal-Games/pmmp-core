@@ -1,5 +1,6 @@
 name: 'Clean up stale PRs'
-#A cron isn't worth the Actions minutes at this repo's PR volume. See pmmp-core#7.
+# No schedule: this repo's PR volume does not justify a nightly job
+# competing with CI for the self-hosted runners. See pmmp-core#7.
 on:
   workflow_dispatch:
 
@@ -33,4 +34,3 @@ jobs:
           only-labels: "Status: Waiting on Author"
           close-pr-label: "Resolution: Abandoned"
           exempt-all-assignees: true
-          
