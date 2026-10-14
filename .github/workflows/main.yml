@@ -143,5 +143,48 @@ jobs:
       - name: Keep temp files off the shared /tmp
         uses: ./.github/actions/runner-temp
 
+      # Each fetched copy is cached under its content hash. When the fetch
+      # fails, the newest cached copy stands in with a warning, so an outage
+      # at raw.githubusercontent.com does not fail the job. With nothing
+      # cached, the restore fails the job instead.
+      - name: Fetch Mojang en_US.lang
+        id: mojang
+        env:
+          MOJANG_LANG_URL: https://raw.githubusercontent.com/Mojang/bedrock-samples/refs/heads/main/resource_pack/texts/en_US.lang
+        run: |
+          set -euo pipefail
+          mkdir -p mojang-lang
+          if curl -fsSL --connect-timeout 15 --max-time 60 --retry 2 --retry-delay 5 --retry-all-errors -o mojang-lang/en_US.lang "$MOJANG_LANG_URL"; then
+            echo "sha=$(sha256sum mojang-lang/en_US.lang | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          else
+            rm -f mojang-lang/en_US.lang
+            echo "::warning::Could not fetch $MOJANG_LANG_URL, verifying against the newest cached copy"
+          fi
+
+      - name: Look up the fetched en_US.lang in the cache
+        id: mojang-cached
+        if: steps.mojang.outputs.sha != ''
+        uses: actions/cache/restore@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: mojang-en-us-lang-${{ steps.mojang.outputs.sha }}
+          lookup-only: true
+
+      - name: Cache the fetched en_US.lang
+        if: steps.mojang.outputs.sha != '' && steps.mojang-cached.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: mojang-en-us-lang-${{ steps.mojang.outputs.sha }}
+
+      - name: Restore the newest cached en_US.lang
+        if: steps.mojang.outputs.sha == ''
+        uses: actions/cache/restore@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: mojang-en-us-lang-
+          restore-keys: mojang-en-us-lang-
+          fail-on-cache-miss: true
+
       - name: Verify translations
-        run: php .github/workflows/verify-translations.php ${{ github.workspace }}/resources/translations
+        run: php .github/workflows/verify-translations.php resources/translations mojang-lang/en_US.lang

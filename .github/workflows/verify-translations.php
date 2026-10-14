@@ -170,8 +170,8 @@ function fetch_url_with_retry(string $url, int $attempts, int $delaySeconds) : s
 	return false;
 }
 
-if(count($argv) !== 2){
-	fwrite(STDERR, "Required arguments: path\n");
+if(count($argv) !== 2 && count($argv) !== 3){
+	fwrite(STDERR, "Required arguments: path [Mojang en_US.lang file or URL]\n");
 	exit(1);
 }
 $rawEng = file_get_contents(language_file_path($argv[1], "eng"));
@@ -185,7 +185,7 @@ if($eng === null){
 	exit(1);
 }
 
-$mojangRaw = fetch_url_with_retry("https://raw.githubusercontent.com/Mojang/bedrock-samples/refs/heads/main/resource_pack/texts/en_US.lang", 3, 5);
+$mojangRaw = fetch_url_with_retry($argv[2] ?? "https://raw.githubusercontent.com/Mojang/bedrock-samples/refs/heads/main/resource_pack/texts/en_US.lang", 3, 5);
 if($mojangRaw === false){
 	fwrite(STDERR, "Failed to fetch official Mojang sources for verification\n");
 	exit(1);
