@@ -1,0 +1,252 @@
+name: QA 230 cache fallback
+
+# Throwaway QA harness for pmmp-core#230. The four Mojang steps are the PR's
+# own steps with the key prefix scoped to this run and the URL made an input,
+# so a fetch failure can be forced and the cache it falls back to is known.
+on:
+  push:
+    branches: [qa/230-cache-fallback]
+
+env:
+  P: qa230-${{ github.run_id }}-mojang-en-us-lang-
+  REAL_URL: https://raw.githubusercontent.com/Mojang/bedrock-samples/refs/heads/main/resource_pack/texts/en_US.lang
+  DEAD_URL: https://raw.githubusercontent.com/Mojang/bedrock-samples/refs/heads/main/resource_pack/texts/qa230-no-such-file.lang
+
+jobs:
+  seed-a:
+    runs-on: [self-hosted, linux, riftal]
+    steps:
+      - uses: actions/checkout@v7
+      - id: mojang
+        env:
+          MOJANG_LANG_URL: ${{ env.REAL_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p mojang-lang
+          if curl -fsSL --connect-timeout 15 --max-time 60 --retry 2 --retry-delay 5 --retry-all-errors -o mojang-lang/en_US.lang "$MOJANG_LANG_URL"; then
+            echo "sha=$(sha256sum mojang-lang/en_US.lang | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          else
+            rm -f mojang-lang/en_US.lang
+            echo "::warning::Could not fetch $MOJANG_LANG_URL, verifying against the newest cached copy"
+          fi
+      - id: mojang-cached
+        if: steps.mojang.outputs.sha != ''
+        uses: actions/cache/restore@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: ${{ env.P }}${{ steps.mojang.outputs.sha }}
+          lookup-only: true
+      - id: save
+        if: steps.mojang.outputs.sha != '' && steps.mojang-cached.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: ${{ env.P }}${{ steps.mojang.outputs.sha }}
+      - name: Assert first fetch was saved
+        env:
+          SHA: ${{ steps.mojang.outputs.sha }}
+          HIT: ${{ steps.mojang-cached.outputs.cache-hit }}
+          SAVE: ${{ steps.save.outcome }}
+        run: |
+          set -euo pipefail
+          echo "sha=$SHA hit=$HIT save=$SAVE"
+          test -n "$SHA"
+          test "$HIT" != true
+          test "$SAVE" = success
+
+  seed-a-again:
+    needs: seed-a
+    runs-on: [self-hosted, linux, riftal]
+    steps:
+      - uses: actions/checkout@v7
+      - id: mojang
+        env:
+          MOJANG_LANG_URL: ${{ env.REAL_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p mojang-lang
+          if curl -fsSL --connect-timeout 15 --max-time 60 --retry 2 --retry-delay 5 --retry-all-errors -o mojang-lang/en_US.lang "$MOJANG_LANG_URL"; then
+            echo "sha=$(sha256sum mojang-lang/en_US.lang | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          else
+            rm -f mojang-lang/en_US.lang
+            echo "::warning::Could not fetch $MOJANG_LANG_URL, verifying against the newest cached copy"
+          fi
+      - id: mojang-cached
+        if: steps.mojang.outputs.sha != ''
+        uses: actions/cache/restore@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: ${{ env.P }}${{ steps.mojang.outputs.sha }}
+          lookup-only: true
+      - id: save
+        if: steps.mojang.outputs.sha != '' && steps.mojang-cached.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: ${{ env.P }}${{ steps.mojang.outputs.sha }}
+      - name: Assert an unchanged copy is not saved twice
+        env:
+          HIT: ${{ steps.mojang-cached.outputs.cache-hit }}
+          SAVE: ${{ steps.save.outcome }}
+        run: |
+          set -euo pipefail
+          echo "hit=$HIT save=$SAVE"
+          test "$HIT" = true
+          test "$SAVE" = skipped
+
+  seed-b:
+    needs: seed-a-again
+    runs-on: [self-hosted, linux, riftal]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Make a newer, distinguishable copy
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$RUNNER_TEMP/b.lang" "$REAL_URL"
+          printf '\nqa230.marker.newest=1\n' >> "$RUNNER_TEMP/b.lang"
+          echo "B_URL=file://$RUNNER_TEMP/b.lang" >> "$GITHUB_ENV"
+      - id: mojang
+        env:
+          MOJANG_LANG_URL: ${{ env.B_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p mojang-lang
+          if curl -fsSL --connect-timeout 15 --max-time 60 --retry 2 --retry-delay 5 --retry-all-errors -o mojang-lang/en_US.lang "$MOJANG_LANG_URL"; then
+            echo "sha=$(sha256sum mojang-lang/en_US.lang | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          else
+            rm -f mojang-lang/en_US.lang
+            echo "::warning::Could not fetch $MOJANG_LANG_URL, verifying against the newest cached copy"
+          fi
+      - id: mojang-cached
+        if: steps.mojang.outputs.sha != ''
+        uses: actions/cache/restore@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: ${{ env.P }}${{ steps.mojang.outputs.sha }}
+          lookup-only: true
+      - id: save
+        if: steps.mojang.outputs.sha != '' && steps.mojang-cached.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: ${{ env.P }}${{ steps.mojang.outputs.sha }}
+      - name: Assert the second copy was saved
+        env:
+          SAVE: ${{ steps.save.outcome }}
+        run: test "$SAVE" = success
+
+  outage:
+    needs: seed-b
+    runs-on: [self-hosted, linux, riftal]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@2.37.2
+        with:
+          php-version: 8.3
+      - uses: ./.github/actions/runner-temp
+      - id: mojang
+        env:
+          MOJANG_LANG_URL: ${{ env.DEAD_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p mojang-lang
+          if curl -fsSL --connect-timeout 15 --max-time 60 --retry 2 --retry-delay 5 --retry-all-errors -o mojang-lang/en_US.lang "$MOJANG_LANG_URL"; then
+            echo "sha=$(sha256sum mojang-lang/en_US.lang | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          else
+            rm -f mojang-lang/en_US.lang
+            echo "::warning::Could not fetch $MOJANG_LANG_URL, verifying against the newest cached copy"
+          fi
+      - id: mojang-cached
+        if: steps.mojang.outputs.sha != ''
+        uses: actions/cache/restore@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: ${{ env.P }}${{ steps.mojang.outputs.sha }}
+          lookup-only: true
+      - id: save
+        if: steps.mojang.outputs.sha != '' && steps.mojang-cached.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: ${{ env.P }}${{ steps.mojang.outputs.sha }}
+      - id: restore
+        if: steps.mojang.outputs.sha == ''
+        uses: actions/cache/restore@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: ${{ env.P }}
+          restore-keys: ${{ env.P }}
+          fail-on-cache-miss: true
+      - name: Assert the newest cached copy stood in
+        env:
+          SHA: ${{ steps.mojang.outputs.sha }}
+          LOOKUP: ${{ steps.mojang-cached.outcome }}
+          SAVE: ${{ steps.save.outcome }}
+          RESTORE: ${{ steps.restore.outcome }}
+          HIT: ${{ steps.restore.outputs.cache-hit }}
+          MATCHED: ${{ steps.restore.outputs.cache-matched-key }}
+        run: |
+          set -euo pipefail
+          echo "sha='$SHA' lookup=$LOOKUP save=$SAVE restore=$RESTORE hit=$HIT matched=$MATCHED"
+          test -z "$SHA"
+          test "$LOOKUP" = skipped
+          test "$SAVE" = skipped
+          test "$RESTORE" = success
+          test "$HIT" = false
+          grep -c '^qa230.marker.newest=1$' mojang-lang/en_US.lang
+      - name: Verify translations
+        run: php .github/workflows/verify-translations.php resources/translations mojang-lang/en_US.lang
+
+  outage-nothing-cached:
+    needs: seed-b
+    runs-on: [self-hosted, linux, riftal]
+    env:
+      P: qa230-${{ github.run_id }}-nothing-
+    steps:
+      - uses: actions/checkout@v7
+      - id: mojang
+        env:
+          MOJANG_LANG_URL: ${{ env.DEAD_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p mojang-lang
+          if curl -fsSL --connect-timeout 15 --max-time 60 --retry 2 --retry-delay 5 --retry-all-errors -o mojang-lang/en_US.lang "$MOJANG_LANG_URL"; then
+            echo "sha=$(sha256sum mojang-lang/en_US.lang | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          else
+            rm -f mojang-lang/en_US.lang
+            echo "::warning::Could not fetch $MOJANG_LANG_URL, verifying against the newest cached copy"
+          fi
+      - id: restore
+        if: steps.mojang.outputs.sha == ''
+        continue-on-error: true
+        uses: actions/cache/restore@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: ${{ env.P }}
+          restore-keys: ${{ env.P }}
+          fail-on-cache-miss: true
+      - id: restore-unguarded
+        if: steps.mojang.outputs.sha == ''
+        continue-on-error: true
+        uses: actions/cache/restore@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: ${{ env.P }}
+          restore-keys: ${{ env.P }}
+      - uses: shivammathur/setup-php@2.37.2
+        with:
+          php-version: 8.3
+      - id: verify
+        continue-on-error: true
+        run: php .github/workflows/verify-translations.php resources/translations mojang-lang/en_US.lang
+      - name: Assert an empty cache fails the restore, and the verify too
+        env:
+          RESTORE: ${{ steps.restore.outcome }}
+          UNGUARDED: ${{ steps.restore-unguarded.outcome }}
+          VERIFY: ${{ steps.verify.outcome }}
+        run: |
+          set -euo pipefail
+          echo "restore=$RESTORE unguarded=$UNGUARDED verify=$VERIFY"
+          test "$RESTORE" = failure
+          test "$UNGUARDED" = success
+          test "$VERIFY" = failure
