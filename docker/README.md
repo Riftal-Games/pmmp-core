@@ -96,6 +96,18 @@ The list of plugins should be given in the format `PluginOne:1.2.3 PluginTwo:4.5
 ## Advanced usage: Passing args to PocketMine-MP.phar inside the container
 The `POCKETMINE_ARGS` environment variable will be passed to `PocketMine-MP.phar` when run.
 
+## Keep the entrypoint
+The image runs `tini -- start-pocketmine`, so the server is never pid 1 in the
+container. Do not override this with `docker run --entrypoint` or a compose
+`entrypoint:`. To change what runs, override the command instead, and keep tini
+in front of it.
+
+After a crash the server ends itself with a SIGKILL to its own pid
+(`Server::crashDump()` in `src/Server.php`). The kernel drops that signal when
+the target is pid 1 of its namespace, and the server then waits forever on any
+plugin thread still running. Without tini, a server that crashes on boot leaves
+its container up and never exits on its own (#105).
+
 ## Colour output
 `--enable-ansi` is passed only when the container's stdout is an actual TTY, for
 example `docker run -it`, so a captured log from a non-interactive run (CI, `docker
