@@ -130,6 +130,54 @@ jobs:
     - uses: 'docker/build-push-action@v7.3.0'
 EOF
 )"
+# A steps: line inside a block scalar is text, not a new list. Read as one, it
+# would leave the untimed build step open for the next job's timeout to cover.
+expect 1 bare-steps-in-run "$(cat <<'EOF'
+jobs:
+  build:
+    steps:
+    - name: Build
+      uses: docker/build-push-action@v7.3.0
+      run: |
+        steps:
+  after:
+    steps:
+    - timeout-minutes: 5
+      run: echo done
+EOF
+)"
+expect 1 bare-steps-in-with "$(cat <<'EOF'
+jobs:
+  build:
+    steps:
+    - name: Build
+      uses: docker/build-push-action@v7.3.0
+      with:
+        build-args: |
+          steps:
+          - timeout-minutes: 5
+EOF
+)"
+expect 1 bare-dash-step-missing "$(cat <<'EOF'
+jobs:
+  build:
+    steps:
+    - timeout-minutes: 55
+      uses: docker/build-push-action@v7.3.0
+    -
+      uses: docker/build-push-action@v7.3.0
+EOF
+)"
+expect 0 bare-dash-step-present "$(cat <<'EOF'
+jobs:
+  build:
+    steps:
+    -
+      name: Build
+      timeout-minutes: 55
+      uses: docker/build-push-action@v7.3.0
+EOF
+)"
 expect 1 no-build-step "$(cat <<'EOF'
 jobs:
   build:
