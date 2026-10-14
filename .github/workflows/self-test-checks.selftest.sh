@@ -59,10 +59,22 @@ echo 'exit 0' > "$ROOT/docker/ok.selftest.sh"
 echo 'exit 0' > "$ROOT/docker/x.selftest.rb"
 expect 1 no-runner-fails "$ROOT" "docker/x.selftest.rb is named as a self-test but has no runner"
 
+# A Windows checkout under Git Bash cannot always create a symlink or deny a
+# directory read. Only there may a case that cannot hold be skipped; anywhere
+# else the case runs and fails on its own terms.
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) WINDOWS=1 ;;
+  *) WINDOWS=0 ;;
+esac
+
 ROOT="$(tree dangling)"
 echo 'exit 0' > "$ROOT/docker/ok.selftest.sh"
-ln -s missing.sh "$ROOT/docker/gone.selftest.sh"
-expect 1 dangling-symlink-fails "$ROOT" "::error::bash docker/gone.selftest.sh failed"
+ln -s missing.sh "$ROOT/docker/gone.selftest.sh" 2>/dev/null
+if [ "$WINDOWS" = 1 ] && [ ! -L "$ROOT/docker/gone.selftest.sh" ]; then
+  echo "skip dangling-symlink-fails: this Windows checkout cannot create a symlink"
+else
+  expect 1 dangling-symlink-fails "$ROOT" "::error::bash docker/gone.selftest.sh failed"
+fi
 
 ROOT="$(tree empty)"
 expect 1 empty-tree-fails "$ROOT" "no self-tests found"
@@ -77,7 +89,11 @@ else
   mkdir "$ROOT/docker/locked"
   echo 'exit 1' > "$ROOT/docker/locked/hidden.selftest.sh"
   chmod 000 "$ROOT/docker/locked"
-  expect 1 unreadable-directory-fails "$ROOT" "find could not search every directory"
+  if [ "$WINDOWS" = 1 ] && ls "$ROOT/docker/locked" > /dev/null 2>&1; then
+    echo "skip unreadable-directory-fails: chmod 000 does not stop a read on this Windows checkout"
+  else
+    expect 1 unreadable-directory-fails "$ROOT" "find could not search every directory"
+  fi
 fi
 
 exit "$FAILED"
