@@ -6,9 +6,9 @@ from an outside fork. Riftal-Games/pmmp-core#48.
 ## Which jobs run on it
 
 Any job whose `runs-on` resolves to `[self-hosted, linux, riftal]` runs on this
-runner, under whatever trigger starts it: a pull request, a `pull_request_target`
-event, a push to any branch or tag, an issue event, a manual dispatch. A `runs-on`
-resolves to those labels by any of three routes:
+runner, under any trigger that starts it. The `on:` blocks decide which triggers
+those are, and this document does not repeat them. A `runs-on` resolves to those
+labels by any of three routes:
 
 - directly, as the literal array;
 - through an input default: an expression such as `${{ fromJson(inputs.image) }}`
@@ -19,11 +19,12 @@ resolves to those labels by any of three routes:
   called job on these labels runs here on every event that reaches the caller.
 
 The workflow files are the only list of what runs here. From the repository root,
-this prints each workflow's `on:` block, every `runs-on` line, and every call to a
-reusable workflow in this repository together with the `with:` block passed to it:
+this prints each workflow's `on:` block, every `runs-on` line with the lines under it
+when its labels are written as a block, and every call to a reusable workflow in this
+repository together with the `with:` block passed to it:
 
 ```
-awk '{sub(/\r$/, "")} FNR==1 {p=0; u=0; print "== " FILENAME} /^on:/ {p=1} /^[^ #]/ && !/^on:/ {p=0} /^  [^ ]/ {u=0} /uses: \.\/\.github\/workflows\// {u=1} p || u || /runs-on:/ {print FNR ": " $0}' .github/workflows/*.yml
+awk '{sub(/\r$/, "")} FNR==1 {p=0; u=0; r=0; print "== " FILENAME} r {i=match($0, /[^ ]/); if (i < r || (i == r && substr($0, i, 2) != "- ")) r=0} /^on:/ {p=1} /^[^ #]/ && !/^on:/ {p=0} /^  [^ ]/ {u=0} /uses: \.\/\.github\/workflows\// {u=1} p || u || r || /runs-on:/ {print FNR ": " $0} /runs-on: *$/ {r=match($0, /[^ ]/)}' .github/workflows/*.yml
 ```
 
 Read a job as running here when its `runs-on` reaches the labels by any of the three
@@ -112,14 +113,30 @@ calls, checks out, installs, builds or runs code from the head of an unmerged pu
 request, or downloads an artifact a pull request's run produced.**
 
 `actions/checkout` with no `ref` takes the event's commit, which on
-`pull_request_target` is the tip of the base branch, so it holds the invariant. A
-`ref` naming `github.event.pull_request.head`, a `refs/pull/` ref, or an artifact
-download breaks it. To check, read every hit of this in a workflow that one of those
-triggers starts, directly or through a caller:
+`pull_request_target` is the tip of the base branch, so it holds the invariant. Any
+other source of code is for a person to judge, because the expressions that name pull
+request code are too many to list safely. From the repository root, this collects
+every workflow file that mentions either trigger, then every workflow and local action
+those files reach through `uses: ./`, prints that set, and then flags each explicit
+`ref:`, each `repository:` taken from the event, each artifact download, and each
+`git` or `gh` command that fetches or checks out code:
 
+```sh
+f=$(grep -lE 'pull_request_target|workflow_run' .github/workflows/*.yml)
+while [ -n "$f" ]; do
+  n=$( { printf '%s\n' $f
+         sed -n 's/^[ -]*uses: *\.\/\([^ @]*\).*/\1/p' $f | tr -d '\r' |
+           while read -r p; do if [ -d "$p" ]; then ls "$p"/action.y*ml; else echo "$p"; fi; done
+       } | sort -u )
+  [ "$n" = "$f" ] && break
+  f=$n
+done
+printf '%s\n' "$f"
+[ -z "$f" ] || grep -HnE 'ref:|repository: .*github\.event|download-artifact|git (fetch|checkout|switch|pull)|gh pr checkout' $f
 ```
-grep -nE 'pull_request_target|workflow_run|head\.(sha|ref)|refs/pull/|download-artifact' .github/workflows/*.yml
-```
+
+The invariant holds when the flagged lines are empty, or when a person has read each
+flagged line and found it names nothing a pull request controls.
 
 ### Why the hazard is closed while these settings hold
 
