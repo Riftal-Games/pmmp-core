@@ -5,8 +5,8 @@ self-hosted-runner:
 # These four release workflows come from upstream unedited, apart from the
 # runner label in draft-release-pr-check.yml. Quoting their run: blocks would be
 # fork diff carried through every rebase.
-# Only the listed shellcheck codes are silenced, so every other check, and any
-# new shellcheck finding, still fails on them.
+# Each listed code is silenced for its whole file. Every other check, and any
+# shellcheck code not listed, still fails on them.
 paths:
   .github/workflows/discord-release-notify.yml:
     ignore:

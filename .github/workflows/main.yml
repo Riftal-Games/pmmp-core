@@ -78,8 +78,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # The unquoted command substitution the publish workflow shipped with
-      # until #157. A pass here would mean shellcheck never ran.
+      # An unquoted command substitution and an unquoted variable, which
+      # shellcheck reports as SC2046 and SC2086. A pass here would mean
+      # shellcheck never ran.
       - name: Check shellcheck runs on run blocks
         run: |
           set -euo pipefail
