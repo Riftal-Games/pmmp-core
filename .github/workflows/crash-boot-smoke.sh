@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Crash-on-boot check shared by docker-image-ci.yml and docker-image-publish.yml.
 # Boots the image detached, so with no stdin, and with a plugin that starts a
-# never-ending thread and then throws in onEnable, and expects the container to exit non-zero on its own, with no
-# `stop` and no `docker stop`. Server::crashDump() sleeps until the server has
-# 120s of uptime before it exits, so the limit sits above that.
+# never-ending thread and then throws in onEnable, and expects the container to
+# exit non-zero on its own, with no `stop` and no `docker stop`.
+# Server::crashDump() sleeps until the server has 120s of uptime before it
+# exits, so the limit sits above that.
 #
 # Usage: crash-boot-smoke.sh <image> <container name> <plugins dir>
 set -euo pipefail
