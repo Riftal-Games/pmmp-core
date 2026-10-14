@@ -10,9 +10,21 @@ Every workflow job in this repository that does work for a pull request or a pus
 its labels from an `image` input whose default is the same array. GitHub picks any
 online runner registered to this repository that carries all three labels.
 
-The jobs still on GitHub-hosted labels (`ubuntu-22.04`, `ubuntu-latest`) are the
-release, publish, Crowdin, Discord and branch-sync workflows, which only run on a
-release, a manual dispatch or a push touching `resources/translations/eng.ini`.
+Three more workflows target the same labels without a pull request or a push to
+`riftal`: `pr-stale.yml` on a manual dispatch, `support.yml` when an issue is
+labeled, unlabeled or reopened, and `pr-remove-waiting-label.yml` together with the
+`check` job of `draft-release.yml`, both described under the hazard below.
+
+The jobs on GitHub-hosted labels (`ubuntu-22.04`, `ubuntu-latest`) are:
+
+- `docker-image-publish.yml`, `discord-release-notify.yml` and
+  `update-updater-api.yml`, on a published release or a manual dispatch;
+- `crowdin-upload-trigger.yml`, on a push to `stable`, `minor-next` or `major-next`
+  touching `resources/translations/eng.ini`, or a manual dispatch;
+- `branch-sync-cron-trigger.yml` and `crowdin-download-cron-trigger.yml`, on a
+  manual dispatch only;
+- the `skip`, `trigger-post-release-workflow` and `draft` jobs of
+  `draft-release.yml`, but not its `check` job.
 
 Which runners exist is decided by registration, not by this document:
 
@@ -48,10 +60,13 @@ CI is therefore down whenever that PC or that distro is.
 The runner is not a container, and its OS is not `ubuntu:24.04`. `/etc/os-release` in
 the distro reads `Ubuntu 26.04 LTS`. The runner process runs directly on that distro,
 and so does every step that does not call `docker` itself: PHPStan, PHPUnit, the
-integration and codegen checks, code style, ShellCheck and the docs and translation
-checks all run there, with PHP from `axolotl-pm/setup-php-action` rather than from the
-image. Only the image build, its smoke steps and actionlint run in containers. No job
-in this repository sets `container:`.
+integration and codegen checks, code style, ShellCheck, the docs and translation
+checks and the release checks all run there. PHP comes from the runner's setup
+actions, not from the image: `axolotl-pm/setup-php-action` in `main-php-matrix.yml`
+and `copilot-setup-steps.yml`, `shivammathur/setup-php` in the code style and
+translation jobs of `main.yml` and in `draft-release-pr-check.yml`. Only the image
+build, its smoke steps and actionlint run in containers. No job in this repository
+sets `container:`.
 
 Hard rule 7 puts `ubuntu:24.04` in the image, not on the host: riftal-pm's
 `docs/decision-log.md`, under "2026-08-23: Containers are the deployment model, dev
@@ -86,9 +101,23 @@ These workflows run pull request code here:
 | `draft-release-pr-check.yml` | `pull_request` to `stable`, `minor-next`, `major-next` or `legacy/*` touching `src/VersionInfo.php` | `check-intent`, `check-validity` |
 | `copilot-setup-steps.yml` | `pull_request` touching that workflow file | `copilot-setup-steps` |
 
-`pr-remove-waiting-label.yml` also runs here, on `pull_request_target`. That trigger
-runs the base branch's copy of the workflow with a write token. It is safe only while
-the job checks out nothing from the pull request, which it does not.
+Two workflows reach this runner on `pull_request_target`. That trigger runs the base
+branch's copy of the workflow with a write token, so it is safe only while no job
+checks out or runs the head of an unmerged pull request.
+
+- `pr-remove-waiting-label.yml`, on `synchronize`. Its one job checks out nothing and
+  only removes two labels through `actions/github-script`.
+- `draft-release.yml`, on a pull request to `stable`, `minor-next`, `major-next` or
+  `legacy/*` touching `src/VersionInfo.php` being closed, merged or not, and on a
+  push of any tag. Unless the tag already has a release, its `check` job calls
+  `draft-release-pr-check.yml` through `workflow_call`, so `check-intent` runs here,
+  and `check-validity` too when `IS_DEVELOPMENT_BUILD` is `false`. Both use
+  `actions/checkout` with no `ref`, which takes the event's commit: the tip of the
+  base branch on `pull_request_target`, holding the merged code after a merge and
+  never the head of an unmerged pull request, or the tagged commit on a tag push.
+  `check-validity` then runs `composer install` and `php build/dump-version-info.php`
+  from that checkout. Code reaches the runner this way only once someone with push
+  access has landed it on one of those branches or tagged it.
 
 ### Why this is acceptable today
 
