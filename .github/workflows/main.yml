@@ -102,6 +102,26 @@ jobs:
       - name: Run actionlint
         run: docker run --rm -m 1g --cpus 1 -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo "$ACTIONLINT_IMAGE" -oneline
 
+  docs-links:
+    name: Docs links
+    runs-on: [self-hosted, linux, riftal]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Keep temp files off the shared /tmp
+        uses: ./.github/actions/runner-temp
+        with:
+          php: false
+
+      # The self-test runs first so a check that can no longer fail never
+      # gets to pass the real documents.
+      - name: Self-test the docs link check
+        run: bash .github/workflows/check-docs-links.selftest.sh
+
+      - name: Check links, anchors and citations in docs/
+        run: python3 .github/workflows/check-docs-links.py
+
   translations:
     name: Translation checks
     runs-on: [self-hosted, linux, riftal]
