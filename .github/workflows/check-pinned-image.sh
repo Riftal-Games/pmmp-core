@@ -16,10 +16,12 @@
 #
 # Any other push fails: it pushes whatever the name points at by then, and
 # only push-pinned-image.sh checks that the registry got $IMAGE_ID (#185).
-# That is docker push or docker image push, a build or bake with --push or a
-# registry output, docker buildx imagetools create, and a push: input other
-# than false, as build-push-action takes. Global options and their values
-# may sit between docker, or buildx, and the verb (#187).
+# That is docker push or docker image push, docker compose push or
+# docker-compose push, a build or bake with --push or a registry output,
+# docker buildx imagetools create, and a push: input other than false, as
+# build-push-action takes. Global options and their values may sit between
+# docker, compose, docker-compose or buildx and the verb (#187, #219). A push
+# this list does not name, by another tool or another spelling, is not seen.
 #
 # Usage: check-pinned-image.sh <workflow file>
 set -uo pipefail
@@ -45,6 +47,7 @@ VALUE="(\"[^\"]*\"|${Q}[^${Q}]*${Q}|[^-[:space:];&|][^[:space:];&|]*)"
 OPTS="([[:space:]]+-[^[:space:]=]*(=${VALUE})?([[:space:]]+${VALUE})?)*"
 DOCKER="docker${OPTS}[[:space:]]+"
 BUILDX="${DOCKER}buildx${OPTS}[[:space:]]+"
+COMPOSE="(${DOCKER}compose|docker-compose)${OPTS}[[:space:]]+"
 FAILED=0
 PINS=0
 RUNS=0
@@ -66,6 +69,9 @@ while IFS=$'\t' read -r NUM CODE; do
   # Outside the chain below, so a run or tag call on the same line cannot hide it.
   if [[ "$CODE" =~ ${DOCKER}(image[[:space:]]+)?push([[:space:]]|$) ]]; then
     fail "$NUM" "a bare docker push sends whatever the name points at by then; push through push-pinned-image.sh $PINNED"
+  fi
+  if [[ "$CODE" =~ ${COMPOSE}push([[:space:]]|$) ]]; then
+    fail "$NUM" "docker compose push sends whatever each service's name points at by then; push through push-pinned-image.sh $PINNED"
   fi
   if [[ "$CODE" =~ (^|[[:space:]])--push([[:space:]=]|$) ]] || [[ "$CODE" == *push=true* ]] || [[ "$CODE" == *type=registry* ]]; then
     fail "$NUM" "a build that pushes sends whatever it built by name; build with push: false and push through push-pinned-image.sh $PINNED"
