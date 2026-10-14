@@ -24,7 +24,7 @@ when its labels are written as a block, and every call to a reusable workflow in
 repository together with the `with:` block passed to it:
 
 ```
-awk '{sub(/\r$/, "")} FNR==1 {p=0; u=0; r=0; print "== " FILENAME} r {i=match($0, /[^ ]/); if (i < r || (i == r && substr($0, i, 2) != "- ")) r=0} /^on:/ {p=1} /^[^ #]/ && !/^on:/ {p=0} /^  [^ ]/ {u=0} /uses: \.\/\.github\/workflows\// {u=1} p || u || r || /runs-on:/ {print FNR ": " $0} /runs-on: *$/ {r=match($0, /[^ ]/)}' .github/workflows/*.yml
+awk '{sub(/\r$/, "")} FNR==1 {p=0; u=0; r=0; print "== " FILENAME} r {i=match($0, /[^ ]/); if (i < r || (i == r && substr($0, i, 2) != "- ")) r=0} /^on:/ {p=1} /^[^ #]/ && !/^on:/ {p=0} /^  [^ ]/ {u=0} /uses: \.\/\.github\/workflows\// {u=1} p || u || r || /runs-on:/ {print FNR ": " $0} /runs-on: *$/ {r=match($0, /[^ ]/)}' .github/workflows/*.y*ml
 ```
 
 Read a job as running here when its `runs-on` reaches the labels by any of the three
@@ -70,7 +70,7 @@ The runner is not a container, and its OS is not `ubuntu:24.04`: `/etc/os-releas
 the distro reads `Ubuntu 26.04 LTS`. The runner process runs directly on that distro,
 and so does every step that does not call `docker` itself, with the tools, PHP
 included, that the job's own setup steps install there. A job runs inside a container
-only if it sets `container:`, which `grep -n 'container:' .github/workflows/*.yml`
+only if it sets `container:`, which `grep -n 'container:' .github/workflows/*.y*ml`
 shows, or if a step calls `docker` itself, as the image build and its smoke steps do.
 
 Hard rule 7 puts `ubuntu:24.04` in the image, not on the host. riftal-pm's
@@ -115,28 +115,12 @@ request, or downloads an artifact a pull request's run produced.**
 `actions/checkout` with no `ref` takes the event's commit, which on
 `pull_request_target` is the tip of the base branch, so it holds the invariant. Any
 other source of code is for a person to judge, because the expressions that name pull
-request code are too many to list safely. From the repository root, this collects
-every workflow file that mentions either trigger, then every workflow and local action
-those files reach through `uses: ./`, prints that set, and then flags each explicit
-`ref:`, each `repository:` taken from the event, each artifact download, and each
-`git` or `gh` command that fetches or checks out code:
+request code are too many to list safely.
 
-```sh
-f=$(grep -lE 'pull_request_target|workflow_run' .github/workflows/*.yml)
-while [ -n "$f" ]; do
-  n=$( { printf '%s\n' $f
-         sed -n 's/^[ -]*uses: *\.\/\([^ @]*\).*/\1/p' $f | tr -d '\r' |
-           while read -r p; do if [ -d "$p" ]; then ls "$p"/action.y*ml; else echo "$p"; fi; done
-       } | sort -u )
-  [ "$n" = "$f" ] && break
-  f=$n
-done
-printf '%s\n' "$f"
-[ -z "$f" ] || grep -HnE 'ref:|repository: .*github\.event|download-artifact|git (fetch|checkout|switch|pull)|gh pr checkout' $f
-```
-
-The invariant holds when the flagged lines are empty, or when a person has read each
-flagged line and found it names nothing a pull request controls.
+The invariant is a rule upheld in review. Whoever reviews a change to a workflow on
+either trigger, or to anything such a workflow reaches through `uses: ./`, reads the
+whole change against it. No command in this document checks it.
+Riftal-Games/pmmp-core#205 is where it gets a real check.
 
 ### Why the hazard is closed while these settings hold
 
