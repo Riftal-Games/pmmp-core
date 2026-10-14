@@ -75,7 +75,8 @@ image exists.
 
 ## What "tier" means here
 
-Borrowed from `riftal-infra/docs/waterdogpe-protocol-2168.md:26-167`, which defines
+Borrowed from `riftal-infra/docs/waterdogpe-protocol-support.md`, section "Evidence, in
+three tiers", which defines
 them, so that the two documents can be read against each other:
 
 | Tier | Means |
