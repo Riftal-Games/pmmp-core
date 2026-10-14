@@ -15,7 +15,8 @@ jobs:
     steps:
     - uses: actions/checkout@v7
       with:
-        submodules: true #needed for build/php submodule
+        # The image compiles PHP from the build/php submodule.
+        submodules: true
 
     # The self-tests and the smoke steps' logs go through mktemp. The docker
     # steps bind-mount only paths in the checkout, never a temp dir.
