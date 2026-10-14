@@ -25,7 +25,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: refs/tags/${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.release }}
-          submodules: true #needed for build/php submodule
+          # The image compiles PHP from the build/php submodule.
+          submodules: true
 
       # A hand-released ref may never have run docker-image-ci.yml, so the
       # checks gating the push below prove here that they can still fail.
