@@ -1,0 +1,25 @@
+self-hosted-runner:
+  labels:
+    - riftal
+
+# These four release workflows come from upstream unedited, apart from the
+# runner label in draft-release-pr-check.yml. Quoting their run: blocks would be
+# fork diff carried through every rebase.
+# Only the listed shellcheck codes are silenced, so every other check, and any
+# new shellcheck finding, still fails on them.
+paths:
+  .github/workflows/discord-release-notify.yml:
+    ignore:
+      - 'SC2086:'
+  .github/workflows/update-updater-api.yml:
+    ignore:
+      - 'SC(2046|2086):'
+  .github/workflows/draft-release.yml:
+    ignore:
+      - 'SC(2004|2046|2086|2129|2193):'
+  .github/workflows/draft-release-pr-check.yml:
+    ignore:
+      - 'SC(2046|2086):'
+      # GitHub documents jobs.<job_id>.result for workflow_call outputs, but
+      # actionlint 1.7.12 types the jobs context as outputs only.
+      - 'property "result" is not defined in object type \{outputs: \{\}\}'
