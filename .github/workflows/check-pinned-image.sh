@@ -14,8 +14,12 @@
 # through push-pinned-image.sh, so either one, or docker tag, satisfies the
 # tag kind.
 #
-# A bare docker push fails: it pushes whatever the name points at by then,
-# and only push-pinned-image.sh checks that the registry got $IMAGE_ID (#185).
+# Any other push fails: it pushes whatever the name points at by then, and
+# only push-pinned-image.sh checks that the registry got $IMAGE_ID (#185).
+# That is docker push or docker image push, a build or bake with --push or a
+# registry output, docker buildx imagetools create, and a push: input other
+# than false, as build-push-action takes. Global options and their values
+# may sit between docker, or buildx, and the verb (#187).
 #
 # Usage: check-pinned-image.sh <workflow file>
 set -uo pipefail
@@ -34,6 +38,13 @@ fi
 # shellcheck disable=SC2016
 PINNED='"$IMAGE_ID"'
 TAG_CALL="tag-image-sha.sh local-pocketmine-mp $PINNED"
+# VALUE is one shell word, quoted or not. OPTS is any run of options, each
+# with an optional value, so DOCKER and BUILDX end just before the verb.
+Q="'"
+VALUE="(\"[^\"]*\"|${Q}[^${Q}]*${Q}|[^-[:space:];&|][^[:space:];&|]*)"
+OPTS="([[:space:]]+-[^[:space:]=]*(=${VALUE})?([[:space:]]+${VALUE})?)*"
+DOCKER="docker${OPTS}[[:space:]]+"
+BUILDX="${DOCKER}buildx${OPTS}[[:space:]]+"
 FAILED=0
 PINS=0
 RUNS=0
@@ -53,14 +64,27 @@ while IFS=$'\t' read -r NUM CODE; do
     PINS=$((PINS + 1))
   fi
   # Outside the chain below, so a run or tag call on the same line cannot hide it.
-  if [[ "$CODE" =~ docker[[:space:]]+(image[[:space:]]+)?push([[:space:]]|$) ]]; then
+  if [[ "$CODE" =~ ${DOCKER}(image[[:space:]]+)?push([[:space:]]|$) ]]; then
     fail "$NUM" "a bare docker push sends whatever the name points at by then; push through push-pinned-image.sh $PINNED"
   fi
+  if [[ "$CODE" =~ (^|[[:space:]])--push([[:space:]=]|$) ]] || [[ "$CODE" == *push=true* ]] || [[ "$CODE" == *type=registry* ]]; then
+    fail "$NUM" "a build that pushes sends whatever it built by name; build with push: false and push through push-pinned-image.sh $PINNED"
+  fi
+  if [[ "$CODE" =~ ${BUILDX}imagetools[[:space:]]+create([[:space:]]|$) ]]; then
+    fail "$NUM" "docker buildx imagetools create pushes a manifest by name; push through push-pinned-image.sh $PINNED"
+  fi
+  # An empty or flow-mapping push: is the on: trigger, never an action input.
+  if [[ "$CODE" =~ ^[[:space:]]*(-[[:space:]]+)?push:[[:space:]]*([^[:space:]{[].*)?$ ]] && [ -n "${BASH_REMATCH[2]}" ]; then
+    VAL="${BASH_REMATCH[2]%"${BASH_REMATCH[2]##*[![:space:]]}"}"
+    if [ "$VAL" != false ] && [ "$VAL" != '"false"' ] && [ "$VAL" != "'false'" ]; then
+      fail "$NUM" "push: $VAL pushes the build by name; build with push: false and push through push-pinned-image.sh $PINNED"
+    fi
+  fi
   KIND=
-  if [[ "$CODE" =~ docker[[:space:]]+(container[[:space:]]+)?(run|create)([[:space:]]|$) ]]; then
+  if [[ "$CODE" =~ ${DOCKER}(container[[:space:]]+)?(run|create)([[:space:]]|$) ]]; then
     KIND=run
     RUNS=$((RUNS + 1))
-  elif [[ "$CODE" =~ docker[[:space:]]+(image[[:space:]]+)?tag([[:space:]]|$) ]]; then
+  elif [[ "$CODE" =~ ${DOCKER}(image[[:space:]]+)?tag([[:space:]]|$) ]]; then
     KIND=tag
     RETAGS=$((RETAGS + 1))
   elif [[ "$CODE" == *push-pinned-image.sh* ]]; then

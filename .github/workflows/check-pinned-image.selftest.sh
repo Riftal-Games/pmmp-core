@@ -191,6 +191,100 @@ expect 1 docker-push-after-run-one-line "$DIR/docker-push-after-run-one-line.yml
 fixture comment-mentions-docker-push '    # docker push "$IMAGE" sends whatever the name points at'
 expect 0 comment-mentions-docker-push "$DIR/comment-mentions-docker-push.yml"
 
+# Each names the pin, so only a push rule can fail it. Global options and
+# their values sit between docker and the verb (#187).
+fixture docker-push-global-option '    - run: echo "$IMAGE_ID"; docker --config "$HOME/.docker" push "$IMAGE"'
+expect 1 docker-push-global-option "$DIR/docker-push-global-option.yml"
+
+fixture docker-push-global-option-equals '    - run: echo "$IMAGE_ID"; docker --config="$HOME/my dir" image push "$IMAGE"'
+expect 1 docker-push-global-option-equals "$DIR/docker-push-global-option-equals.yml"
+
+fixture docker-push-global-quoted-value '    - run: echo "$IMAGE_ID"; docker --config "$HOME/my dir" push "$IMAGE"'
+expect 1 docker-push-global-quoted-value "$DIR/docker-push-global-quoted-value.yml"
+
+fixture docker-push-global-options '    - run: echo "$IMAGE_ID"; docker -H unix:///var/run/docker.sock --debug -l info push "$IMAGE"'
+expect 1 docker-push-global-options "$DIR/docker-push-global-options.yml"
+
+fixture docker-push-global-option-continued '    - run: |
+        echo "$IMAGE_ID"
+        docker --context default \
+          push "$IMAGE"'
+expect 1 docker-push-global-option-continued "$DIR/docker-push-global-option-continued.yml"
+
+fixture buildx-build-push '    - run: echo "$IMAGE_ID"; docker buildx build --push -t "$IMAGE" .'
+expect 1 buildx-build-push "$DIR/buildx-build-push.yml"
+
+fixture docker-build-push '    - run: echo "$IMAGE_ID"; docker build -t "$IMAGE" --push=true .'
+expect 1 docker-build-push "$DIR/docker-build-push.yml"
+
+fixture buildx-bake-push '    - run: echo "$IMAGE_ID"; docker buildx bake --push'
+expect 1 buildx-bake-push "$DIR/buildx-bake-push.yml"
+
+fixture buildx-output-registry '    - run: echo "$IMAGE_ID"; docker buildx build --output type=registry,name="$IMAGE" .'
+expect 1 buildx-output-registry "$DIR/buildx-output-registry.yml"
+
+fixture buildx-output-push-true '    - run: echo "$IMAGE_ID"; docker buildx build -o type=image,name="$IMAGE",push=true .'
+expect 1 buildx-output-push-true "$DIR/buildx-output-push-true.yml"
+
+fixture imagetools-create '    - run: echo "$IMAGE_ID"; docker buildx imagetools create -t "$IMAGE" "$SOURCE"'
+expect 1 imagetools-create "$DIR/imagetools-create.yml"
+
+fixture imagetools-create-global-options '    - run: echo "$IMAGE_ID"; docker --context default buildx --builder "$B" imagetools create -t "$IMAGE" "$SOURCE"'
+expect 1 imagetools-create-global-options "$DIR/imagetools-create-global-options.yml"
+
+fixture build-push-action-push-true '    - uses: docker/build-push-action@v7.3.0
+      with:
+        tags: ${{ env.IMAGE }}
+        push: true'
+expect 1 build-push-action-push-true "$DIR/build-push-action-push-true.yml"
+
+fixture build-push-action-push-quoted '    - uses: docker/build-push-action@v7.3.0
+      with:
+        push: "true"'
+expect 1 build-push-action-push-quoted "$DIR/build-push-action-push-quoted.yml"
+
+fixture build-push-action-push-expression '    - uses: docker/build-push-action@v7.3.0
+      with:
+        push: ${{ github.event_name == '"'push'"' }}'
+expect 1 build-push-action-push-expression "$DIR/build-push-action-push-expression.yml"
+
+fixture build-push-action-outputs-registry '    - uses: docker/build-push-action@v7.3.0
+      with:
+        outputs: type=registry'
+expect 1 build-push-action-outputs-registry "$DIR/build-push-action-outputs-registry.yml"
+
+fixture build-push-action-push-false '    - uses: docker/build-push-action@v7.3.0
+      with:
+        push: false
+        load: true'
+expect 0 build-push-action-push-false "$DIR/build-push-action-push-false.yml"
+
+fixture push-trigger-key 'on:
+  push:
+    branches: [riftal]
+  pull_request: {}'
+expect 0 push-trigger-key "$DIR/push-trigger-key.yml"
+
+fixture push-trigger-flow-mapping 'on:
+  push: {branches: [riftal]}'
+expect 0 push-trigger-flow-mapping "$DIR/push-trigger-flow-mapping.yml"
+
+fixture imagetools-inspect '    - run: docker --context default buildx imagetools inspect --raw "$IMAGE"'
+expect 0 imagetools-inspect "$DIR/imagetools-inspect.yml"
+
+fixture buildx-build-load '    - run: docker buildx build --load -t "$IMAGE" .'
+expect 0 buildx-build-load "$DIR/buildx-build-load.yml"
+
+fixture push-as-run-argument '    - run: docker run --rm "$IMAGE_ID" echo push'
+expect 0 push-as-run-argument "$DIR/push-as-run-argument.yml"
+
+# Names neither the pin nor the bare tag, so only the missing pin can fail it.
+fixture run-global-option-without-pin '    - run: docker --config "$HOME/.docker" run --rm "$IMAGE" true'
+expect 1 run-global-option-without-pin "$DIR/run-global-option-without-pin.yml"
+
+fixture tag-global-option-without-pin '    - run: docker -H unix:///var/run/docker.sock image tag "$SOURCE" "$IMAGE"'
+expect 1 tag-global-option-without-pin "$DIR/tag-global-option-without-pin.yml"
+
 expect 1 missing-file "$DIR/missing-file.yml"
 
 exit "$FAILED"
