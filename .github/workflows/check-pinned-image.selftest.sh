@@ -226,6 +226,35 @@ expect 1 buildx-output-registry "$DIR/buildx-output-registry.yml"
 fixture buildx-output-push-true '    - run: echo "$IMAGE_ID"; docker buildx build -o type=image,name="$IMAGE",push=true .'
 expect 1 buildx-output-push-true "$DIR/buildx-output-push-true.yml"
 
+# Buildkit reads push= with Go's strconv.ParseBool, and an empty value as
+# true, so every one of these pushes (#212).
+for PAIR in True:True TRUE:TRUE one:1 t:t T:T empty: quoted:'"true"'; do
+  NAME="buildx-output-push-${PAIR%%:*}"
+  fixture "$NAME" "    - run: echo \"\$IMAGE_ID\"; docker buildx build -o type=image,name=\"\$IMAGE\",push=${PAIR#*:} ."
+  expect 1 "$NAME" "$DIR/$NAME.yml"
+done
+
+fixture buildx-output-push-1-mid-list '    - run: echo "$IMAGE_ID"; docker buildx build -o type=image,push=1,name="$IMAGE" .'
+expect 1 buildx-output-push-1-mid-list "$DIR/buildx-output-push-1-mid-list.yml"
+
+fixture buildx-output-push-false '    - run: docker buildx build -o type=image,name="$IMAGE",push=false .'
+expect 0 buildx-output-push-false "$DIR/buildx-output-push-false.yml"
+
+fixture buildx-output-push-0 '    - run: docker buildx build -o type=image,name="$IMAGE",push=0 .'
+expect 0 buildx-output-push-0 "$DIR/buildx-output-push-0.yml"
+
+fixture compose-push '    - run: echo "$IMAGE_ID"; docker compose push'
+expect 1 compose-push "$DIR/compose-push.yml"
+
+fixture compose-push-options '    - run: echo "$IMAGE_ID"; docker --context default compose -f compose.yml push app'
+expect 1 compose-push-options "$DIR/compose-push-options.yml"
+
+fixture docker-compose-push '    - run: echo "$IMAGE_ID"; docker-compose push app'
+expect 1 docker-compose-push "$DIR/docker-compose-push.yml"
+
+fixture compose-pull '    - run: docker compose pull'
+expect 0 compose-pull "$DIR/compose-pull.yml"
+
 fixture imagetools-create '    - run: echo "$IMAGE_ID"; docker buildx imagetools create -t "$IMAGE" "$SOURCE"'
 expect 1 imagetools-create "$DIR/imagetools-create.yml"
 
