@@ -211,6 +211,22 @@ fixture docker-push-global-option-continued '    - run: |
           push "$IMAGE"'
 expect 1 docker-push-global-option-continued "$DIR/docker-push-global-option-continued.yml"
 
+fixture compose-push '    - run: echo "$IMAGE_ID"; docker compose push'
+expect 1 compose-push "$DIR/compose-push.yml"
+
+# Options both before and after compose, so a rule that allows only one side fails it.
+fixture compose-push-options '    - run: echo "$IMAGE_ID"; docker --context default compose -f "$FILE" --project-name core push app'
+expect 1 compose-push-options "$DIR/compose-push-options.yml"
+
+fixture docker-compose-push '    - run: echo "$IMAGE_ID"; docker-compose push'
+expect 1 docker-compose-push "$DIR/docker-compose-push.yml"
+
+fixture docker-compose-push-options '    - run: echo "$IMAGE_ID"; docker-compose -f "$FILE" -p core push app'
+expect 1 docker-compose-push-options "$DIR/docker-compose-push-options.yml"
+
+fixture compose-pull '    - run: docker --context default compose -f "$FILE" pull && docker-compose pull'
+expect 0 compose-pull "$DIR/compose-pull.yml"
+
 fixture buildx-build-push '    - run: echo "$IMAGE_ID"; docker buildx build --push -t "$IMAGE" .'
 expect 1 buildx-build-push "$DIR/buildx-build-push.yml"
 
