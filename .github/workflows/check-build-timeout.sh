@@ -38,15 +38,17 @@ for FILE in "$@"; do
       ind = indent($0)
       body = substr($0, ind + 1)
     }
-    insteps && (ind < dash || (ind == dash && body !~ /^- /)) {
+    insteps && (ind < dash || (ind == dash && body !~ /^-( |$)/)) {
       close_step(); insteps = 0; dash = -1
     }
-    insteps && ind == dash && body ~ /^- / {
+    insteps && ind == dash && body ~ /^-( |$)/ {
       close_step(); instep = 1; start = NR
       body = substr(body, 3); sub(/^ +/, "", body); ind = dash + 2
     }
-    body ~ /^steps:[[:space:]]*$/ { insteps = 1; dash = -1; stepsind = ind; next }
-    insteps && dash < 0 && body ~ /^- / && ind >= stepsind {
+    # Inside a step, steps: can only be text in a value such as a run: block,
+    # and reading it as a new list would drop the open step unchecked.
+    !instep && body ~ /^steps:[[:space:]]*$/ { insteps = 1; dash = -1; stepsind = ind; next }
+    insteps && dash < 0 && body ~ /^-( |$)/ && ind >= stepsind {
       dash = ind; instep = 1; start = NR
       body = substr(body, 3); sub(/^ +/, "", body); ind = dash + 2
     }
