@@ -1,6 +1,6 @@
 name: 'Clean up stale PRs'
-# No schedule: this repo's PR volume does not justify a nightly job on the
-# single self-hosted runner that CI also queues on. See pmmp-core#7.
+# No schedule: this repo's PR volume does not justify a nightly job
+# competing with CI for the self-hosted runners. See pmmp-core#7.
 on:
   workflow_dispatch:
 
