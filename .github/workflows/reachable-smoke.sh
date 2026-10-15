@@ -2,8 +2,9 @@
 # REACHABLE check shared by docker-image-ci.yml and docker-image-publish.yml.
 # Boots the image with its UDP port published on a loopback port the docker
 # daemon picks, expects a RakNet pong with the given MOTD and the protocol
-# below, then stops the server through its console and removes the container and its anonymous volumes. A server that exits
-# non-zero after `stop` fails the run even when the pong was valid.
+# below, then stops the server through its console and removes the
+# container and its anonymous volumes. A server that exits non-zero after
+# `stop` fails the run even when the pong was valid.
 #
 # The daemon picks the port because a port derived from the run identity is
 # shared by every matrix leg and every job of that run, and two of them on
@@ -118,6 +119,8 @@ BINDING=$(docker port "$CONTAINER_NAME" 19132/udp) || BINDING=""
 HOST_PORT="${BINDING##*:}"
 if ! [[ "$BINDING" == 127.0.0.1:* && "$HOST_PORT" =~ ^[0-9]+$ ]]; then
   echo "::error::docker reported no loopback port for 19132/udp, got: $BINDING"
+  cat "$LOG"
+  "$HERE/check-no-crash-upload.sh" "$LOG"
   exit 1
 fi
 echo "server is up, pinging 127.0.0.1:$HOST_PORT/udp"

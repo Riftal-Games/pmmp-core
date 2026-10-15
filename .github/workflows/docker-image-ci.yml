@@ -39,9 +39,9 @@ jobs:
     # the next run must not inherit that state by reusing a builder instance
     # that survived from before. `docker/setup-buildx-action` picks its own
     # builder name and does not guarantee a fresh one on a host like this, so
-    # the name is scoped to this run and attempt instead, matching the
-    # REACHABLE step's container-naming below, and the old builder under that
-    # name is removed first in case a retried attempt left one behind.
+    # the name is scoped to this run and attempt instead, and the old builder
+    # under that name is removed first in case a retried attempt left one
+    # behind.
     - name: Create a run-scoped Buildx builder
       id: buildx
       shell: bash
