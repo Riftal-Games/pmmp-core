@@ -20,11 +20,25 @@ EXPECTED_ASSERTIONS=4
 pass() { printf '  ok    %s\n' "$1"; PASSES=$((PASSES + 1)); }
 fail() { printf '::error::%s\n' "$1"; FAILURES=$((FAILURES + 1)); }
 
+# Runs the check on $1 against Ubuntu $2 and leaves its stdout in the caller's
+# `out`. The check always exits 0, so any other status is a failed assertion:
+# a check that crashes prints nothing, and nothing is what a clean file prints.
+run_check() {
+  local status
+  out="$("$CHECK" "$1" "$2")"
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    fail "check-ubuntu-base.sh exited $status on $1, and it must always exit 0. It printed:"
+    printf '%s\n' "$out"
+    return 1
+  fi
+}
+
 # Fixtures that must be recognized as fully on $2, so the check must print
 # nothing for them.
 expect_clean() {
   local out
-  out="$("$CHECK" "$FIXTURES/$1" "$2")"
+  run_check "$FIXTURES/$1" "$2" || return 0
   if [ -z "$out" ]; then
     pass "$1 -> no stragglers"
   else
@@ -37,7 +51,7 @@ expect_clean() {
 # that stops matching for an unrelated reason cannot pass by accident.
 expect_flagged() {
   local out
-  out="$("$CHECK" "$FIXTURES/$1" "$2")"
+  run_check "$FIXTURES/$1" "$2" || return 0
   if [ -n "$out" ] && printf '%s' "$out" | grep -qF "$3"; then
     pass "$1 -> flagged, naming $3"
   else
@@ -54,12 +68,13 @@ expect_flagged bad-external-base.Dockerfile 24.04 "FROM ubuntu:22.04 AS build-po
 # above is worthless if the same logic no longer agrees with the file it was
 # extracted from.
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-out="$("$CHECK" "$REPO_ROOT/docker/Dockerfile" 24.04)"
-if [ -z "$out" ]; then
-  pass "docker/Dockerfile -> no stragglers"
-else
-  fail "expected docker/Dockerfile to have no stragglers on Ubuntu 24.04, got:"
-  printf '%s\n' "$out"
+if run_check "$REPO_ROOT/docker/Dockerfile" 24.04; then
+  if [ -z "$out" ]; then
+    pass "docker/Dockerfile -> no stragglers"
+  else
+    fail "expected docker/Dockerfile to have no stragglers on Ubuntu 24.04, got:"
+    printf '%s\n' "$out"
+  fi
 fi
 
 printf '\n'
