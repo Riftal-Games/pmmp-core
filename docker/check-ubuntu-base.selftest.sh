@@ -15,7 +15,7 @@ FAILURES=0
 PASSES=0
 # Every assertion below must run. A harness that quietly skips one and still
 # prints its closing line is the exact failure it exists to catch.
-EXPECTED_ASSERTIONS=4
+EXPECTED_ASSERTIONS=9
 
 pass() { printf '  ok    %s\n' "$1"; PASSES=$((PASSES + 1)); }
 fail() { printf '::error::%s\n' "$1"; FAILURES=$((FAILURES + 1)); }
@@ -64,6 +64,15 @@ expect_clean chained-stage.Dockerfile 24.04
 expect_clean platform-prefixed.Dockerfile 24.04
 expect_flagged bad-external-base.Dockerfile 24.04 "FROM ubuntu:22.04 AS build-pocketmine"
 
+# The five bases the grep this check replaced waved through as Ubuntu 24.04
+# (#65). A digest or a build arg may well resolve to 24.04, but the check
+# cannot see that from the text, so it has to refuse them.
+expect_flagged debian-stage.Dockerfile 24.04 "1:FROM debian:12 AS build-php"
+expect_flagged digest-pin.Dockerfile 24.04 "3:FROM ubuntu@sha256:"
+expect_flagged build-arg-base.Dockerfile 24.04 '3:FROM ${BASE_IMAGE} AS build-pocketmine'
+expect_flagged extra-spaces.Dockerfile 24.04 "2:FROM  ubuntu:22.04 AS build-pocketmine"
+expect_flagged unescaped-dot.Dockerfile 24.04 "2:FROM ubuntu:24x04 AS build-pocketmine"
+
 # The real Dockerfile is the thing production ships. Passing on the fixtures
 # above is worthless if the same logic no longer agrees with the file it was
 # extracted from.
@@ -88,4 +97,4 @@ if [ "$FAILURES" -ne 0 ]; then
   printf '%s self-test assertion(s) failed. The stage-walk check has stopped discriminating.\n' "$FAILURES"
   exit 1
 fi
-printf 'all %s assertions passed: stage chaining, --platform stripping, the bad-external-base regression, and the real Dockerfile.\n' "$PASSES"
+printf 'all %s assertions passed: stage chaining, --platform stripping, the bad-external-base regression, the five #65 bypasses, and the real Dockerfile.\n' "$PASSES"
