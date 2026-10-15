@@ -69,6 +69,8 @@ expect_flagged bad-external-base.Dockerfile 24.04 "FROM ubuntu:22.04 AS build-po
 # cannot see that from the text, so it has to refuse them.
 expect_flagged debian-stage.Dockerfile 24.04 "1:FROM debian:12 AS build-php"
 expect_flagged digest-pin.Dockerfile 24.04 "3:FROM ubuntu@sha256:"
+# The fixture's own text, matched verbatim, so the build arg must not expand.
+# shellcheck disable=SC2016
 expect_flagged build-arg-base.Dockerfile 24.04 '3:FROM ${BASE_IMAGE} AS build-pocketmine'
 expect_flagged extra-spaces.Dockerfile 24.04 "2:FROM  ubuntu:22.04 AS build-pocketmine"
 expect_flagged unescaped-dot.Dockerfile 24.04 "2:FROM ubuntu:24x04 AS build-pocketmine"
