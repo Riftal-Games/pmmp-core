@@ -1,21 +1,25 @@
 #!/usr/bin/env bash
 # REACHABLE check shared by docker-image-ci.yml and docker-image-publish.yml.
-# Boots the image with its UDP port published, expects a RakNet pong with
-# the given MOTD and the protocol below, then stops the server through its console
-# and removes the container and its anonymous volumes. A server that exits
+# Boots the image with its UDP port published on a loopback port the docker
+# daemon picks, expects a RakNet pong with the given MOTD and the protocol
+# below, then stops the server through its console and removes the container and its anonymous volumes. A server that exits
 # non-zero after `stop` fails the run even when the pong was valid.
 #
-# Usage: reachable-smoke.sh <image> <container name> <host port> <motd>
+# The daemon picks the port because a port derived from the run identity is
+# shared by every matrix leg and every job of that run, and two of them on
+# one daemon collide on the bind (#64). The container name has no such
+# fallback, so callers make it unique per job, matrix leg and attempt.
+#
+# Usage: reachable-smoke.sh <image> <container name> <motd>
 set -euo pipefail
 
-if [ "$#" != 4 ]; then
-  echo "usage: reachable-smoke.sh <image> <container name> <host port> <motd>" >&2
+if [ "$#" != 3 ]; then
+  echo "usage: reachable-smoke.sh <image> <container name> <motd>" >&2
   exit 2
 fi
 IMAGE="$1"
 CONTAINER_NAME="$2"
-HOST_PORT="$3"
-EXPECTED_MOTD="$4"
+EXPECTED_MOTD="$3"
 
 # Advertised Bedrock protocol. Derived from ProtocolInfo::CURRENT_PROTOCOL
 # in axolotl-pm/bedrock-protocol 62.0.0+bedrock-1.26.50, which
@@ -76,7 +80,7 @@ trap cleanup EXIT
 # crash dumps to a public archive, and a repeated flag reaches the server as
 # an array, which casts back to true (#91).
 docker run --name "$CONTAINER_NAME" -i \
-  -p "$HOST_PORT:19132/udp" \
+  -p 127.0.0.1::19132/udp \
   -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0 --motd=$EXPECTED_MOTD" \
   "$IMAGE" <"$FIFO" >"$LOG" 2>&1 &
 DOCKER_PID=$!
@@ -106,6 +110,14 @@ if [ "$READY" != 1 ]; then
   echo "::error::server never reached the startFinished line, so there was nothing to ping"
   cat "$LOG"
   "$HERE/check-no-crash-upload.sh" "$LOG"
+  exit 1
+fi
+# `docker port` prints one ADDRESS:PORT line per binding, and the publish
+# above makes exactly one.
+BINDING=$(docker port "$CONTAINER_NAME" 19132/udp) || BINDING=""
+HOST_PORT="${BINDING##*:}"
+if ! [[ "$BINDING" == 127.0.0.1:* && "$HOST_PORT" =~ ^[0-9]+$ ]]; then
+  echo "::error::docker reported no loopback port for 19132/udp, got: $BINDING"
   exit 1
 fi
 echo "server is up, pinging 127.0.0.1:$HOST_PORT/udp"

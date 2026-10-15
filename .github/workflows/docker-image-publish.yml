@@ -246,8 +246,13 @@ jobs:
       - name: Test if it is reachable over UDP
         timeout-minutes: 10
         shell: bash
+        # The container name carries the run, attempt, job and matrix leg,
+        # and the script leaves the host port to the daemon, so legs sharing
+        # one daemon never collide.
+        env:
+          LEG: ${{ strategy.job-index }}
         run: |
-          .github/workflows/reachable-smoke.sh "$IMAGE_ID" "pm-publish-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" "$(( 20000 + (GITHUB_RUN_ID % 40000) ))" riftal-publish-probe
+          .github/workflows/reachable-smoke.sh "$IMAGE_ID" "pm-publish-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}-${LEG}" riftal-publish-probe
 
       # A server that crashes while enabling a plugin SIGKILLs its own pid after
       # the restart throttle. As a container's pid 1 it survives that and hangs

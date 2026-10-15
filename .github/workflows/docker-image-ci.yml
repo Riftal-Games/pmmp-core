@@ -229,13 +229,13 @@ jobs:
     - name: Test if it is reachable over UDP
       timeout-minutes: 10
       shell: bash
-      # A fixed name and port are harmless on a GitHub-hosted runner, which
-      # is single-job and thrown away after. They collide the moment this
-      # step runs twice against the same daemon, which is the normal case
-      # on a self-hosted runner and on a local `/dev-stack` run. Tie both to
-      # the run identity instead.
+      # A self-hosted runner shares one daemon across runs, jobs and matrix
+      # legs, so the container name carries the run, attempt, job and leg,
+      # and the script leaves the host port to the daemon.
+      env:
+        LEG: ${{ strategy.job-index }}
       run: |
-        .github/workflows/reachable-smoke.sh "$IMAGE_ID" "pm-reachable-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" "$(( 20000 + (GITHUB_RUN_ID % 40000) ))" riftal-reachable-probe
+        .github/workflows/reachable-smoke.sh "$IMAGE_ID" "pm-reachable-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}-${LEG}" riftal-reachable-probe
 
     # A server that crashes while enabling a plugin SIGKILLs its own pid after
     # the restart throttle. As a container's pid 1 it survives that and hangs

@@ -45,7 +45,7 @@ jobs:
       run: echo "IMAGE_ID=$BUILT_ID" >> "$GITHUB_ENV"
     - run: |
         docker run --rm "$IMAGE_ID" true
-        .github/workflows/reachable-smoke.sh "$IMAGE_ID" name 20000 motd
+        .github/workflows/reachable-smoke.sh "$IMAGE_ID" name motd
         .github/workflows/crash-boot-smoke.sh "$IMAGE_ID" name ./plugins
         bash .github/workflows/tag-image-sha.sh local-pocketmine-mp "$IMAGE_ID"
 EOF
@@ -124,13 +124,13 @@ expect 1 tag-through-variable "$DIR/tag-through-variable.yml"
 fixture run-without-pin '    - run: docker run --rm "$IMAGE" true'
 expect 1 run-without-pin "$DIR/run-without-pin.yml"
 
-fixture reachable-without-pin '    - run: .github/workflows/reachable-smoke.sh "$IMAGE" name 20000 motd'
+fixture reachable-without-pin '    - run: .github/workflows/reachable-smoke.sh "$IMAGE" name motd'
 expect 1 reachable-without-pin "$DIR/reachable-without-pin.yml"
 
 fixture crash-without-pin '    - run: .github/workflows/crash-boot-smoke.sh "$IMAGE" name ./plugins'
 expect 1 crash-without-pin "$DIR/crash-without-pin.yml"
 
-fixture bare-latest '    - run: .github/workflows/reachable-smoke.sh local-pocketmine-mp:latest name 20000 motd'
+fixture bare-latest '    - run: .github/workflows/reachable-smoke.sh local-pocketmine-mp:latest name motd'
 expect 1 bare-latest "$DIR/bare-latest.yml"
 
 grep -vF 'steps.build.outputs.imageid' "$DIR/minimal.yml" > "$DIR/no-pin.yml"
