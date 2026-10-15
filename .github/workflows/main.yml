@@ -143,5 +143,75 @@ jobs:
       - name: Keep temp files off the shared /tmp
         uses: ./.github/actions/runner-temp
 
+      # Each fetched copy is cached under its content hash once it has passed
+      # verification. When the fetch fails, the newest cached copy stands in
+      # with a warning, so an outage at raw.githubusercontent.com does not
+      # fail the job. With nothing cached, the restore fails the job instead.
+      # A pull request can restore only what riftal or its own ref saved, and
+      # GitHub evicts an entry unused for 7 days.
+      - name: Fetch Mojang en_US.lang
+        id: mojang
+        run: bash .github/workflows/fetch-mojang-lang.sh https://raw.githubusercontent.com/Mojang/bedrock-samples/refs/heads/main/resource_pack/texts/en_US.lang
+
+      - name: Restore the newest cached en_US.lang
+        if: steps.mojang.outputs.sha == ''
+        uses: actions/cache/restore@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: mojang-en-us-lang-
+          restore-keys: mojang-en-us-lang-
+          fail-on-cache-miss: true
+
       - name: Verify translations
-        run: php .github/workflows/verify-translations.php ${{ github.workspace }}/resources/translations
+        run: php .github/workflows/verify-translations.php resources/translations mojang-lang/en_US.lang
+
+      - name: Look up the fetched en_US.lang in the cache
+        id: mojang-cached
+        if: steps.mojang.outputs.sha != ''
+        uses: actions/cache/restore@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: mojang-en-us-lang-${{ steps.mojang.outputs.sha }}
+          lookup-only: true
+
+      - name: Cache the fetched en_US.lang
+        if: steps.mojang.outputs.sha != '' && steps.mojang-cached.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: mojang-en-us-lang-${{ steps.mojang.outputs.sha }}
+
+      # The fallback runs on every pass, not only during an outage, so a
+      # restore that stops matching fails here before an outage finds it.
+      # Port 9 refuses the connection, which takes the fetch's failure branch.
+      - name: "Self-test the fallback: fetch from a refused URL"
+        id: mojang-selftest
+        run: |
+          bash .github/workflows/fetch-mojang-lang.sh http://127.0.0.1:9/en_US.lang
+          if [ -e mojang-lang/en_US.lang ]; then
+            echo "::error::the refused fetch left a file behind, so the fallback was not reached"
+            exit 1
+          fi
+
+      - name: "Self-test the fallback: restore the newest cached en_US.lang"
+        id: mojang-selftest-restore
+        if: steps.mojang-selftest.outputs.sha == ''
+        uses: actions/cache/restore@v6
+        with:
+          path: mojang-lang/en_US.lang
+          key: mojang-en-us-lang-
+          restore-keys: mojang-en-us-lang-
+          fail-on-cache-miss: true
+
+      - name: "Self-test the fallback: verify against the restored copy"
+        env:
+          SELFTEST_SHA: ${{ steps.mojang-selftest.outputs.sha }}
+          MATCHED_KEY: ${{ steps.mojang-selftest-restore.outputs.cache-matched-key }}
+        run: |
+          set -euo pipefail
+          if [ -n "$SELFTEST_SHA" ] || [ -z "$MATCHED_KEY" ] || [ ! -s mojang-lang/en_US.lang ]; then
+            echo "::error::the fallback did not restore a cached en_US.lang (sha='$SELFTEST_SHA', matched key='$MATCHED_KEY')"
+            exit 1
+          fi
+          echo "Restored $MATCHED_KEY"
+          php .github/workflows/verify-translations.php resources/translations mojang-lang/en_US.lang
