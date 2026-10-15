@@ -199,8 +199,8 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: mojang-lang/en_US.lang
-          key: mojang-en-us-lang-deliberately-absent-
-          restore-keys: mojang-en-us-lang-deliberately-absent-
+          key: mojang-en-us-lang-
+          restore-keys: mojang-en-us-lang-
           fail-on-cache-miss: true
 
       - name: "Self-test the fallback: verify against the restored copy"
