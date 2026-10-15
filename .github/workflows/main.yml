@@ -200,7 +200,7 @@ jobs:
         with:
           path: mojang-lang/en_US.lang
           key: mojang-en-us-lang-
-          restore-keys: mojang-en-us-lang-
+          restore-keys: mojang-en-us-lang-deliberately-absent-
           fail-on-cache-miss: true
 
       - name: "Self-test the fallback: verify against the restored copy"
