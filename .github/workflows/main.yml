@@ -199,7 +199,7 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: mojang-lang/en_US.lang
-          key: mojang-en-us-lang-
+          key: mojang-en-us-lang-deliberately-absent-
           restore-keys: mojang-en-us-lang-deliberately-absent-
           fail-on-cache-miss: true
 
