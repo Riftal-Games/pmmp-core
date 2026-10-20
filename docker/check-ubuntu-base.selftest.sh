@@ -4,8 +4,9 @@
 # docker/Dockerfile never chains a `FROM <stage> AS <name>` off an earlier
 # stage and never uses `--platform=`, so a CI run against it alone proves
 # nothing about either branch pmmp-core#66 added. These fixtures exercise
-# both branches directly, plus the bad-external-base case pmmp-core#21/#65
-# fixed, so a revert of either fix turns this red on the same commit.
+# both branches directly, the bad-external-base case pmmp-core#21/#65 fixed,
+# and each way a digest pin can be missing, malformed or split across stages
+# (pmmp-core#19), so a revert of any of them turns this red on the same commit.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,7 +16,7 @@ FAILURES=0
 PASSES=0
 # Every assertion below must run. A harness that quietly skips one and still
 # prints its closing line is the exact failure it exists to catch.
-EXPECTED_ASSERTIONS=4
+EXPECTED_ASSERTIONS=8
 
 pass() { printf '  ok    %s\n' "$1"; PASSES=$((PASSES + 1)); }
 fail() { printf '::error::%s\n' "$1"; FAILURES=$((FAILURES + 1)); }
@@ -62,7 +63,13 @@ expect_flagged() {
 
 expect_clean chained-stage.Dockerfile 24.04
 expect_clean platform-prefixed.Dockerfile 24.04
-expect_flagged bad-external-base.Dockerfile 24.04 "FROM ubuntu:22.04 AS build-pocketmine"
+expect_flagged bad-external-base.Dockerfile 24.04 "2:FROM ubuntu:22.04@sha256:"
+expect_flagged unpinned-base.Dockerfile 24.04 "2:FROM ubuntu:24.04 AS build-pocketmine"
+# The malformed digest is on the first stage. On a later stage the shared
+# digest rule would flag it too, and the format rule could go unproven.
+expect_flagged short-digest.Dockerfile 24.04 "1:FROM ubuntu:24.04@sha256:68ee22004a91 AS"
+expect_flagged uppercase-digest.Dockerfile 24.04 "1:FROM ubuntu:24.04@sha256:68EE"
+expect_flagged mixed-digests.Dockerfile 24.04 "2:FROM ubuntu:24.04@sha256:0123"
 
 # The real Dockerfile is the thing production ships. Passing on the fixtures
 # above is worthless if the same logic no longer agrees with the file it was
@@ -88,4 +95,4 @@ if [ "$FAILURES" -ne 0 ]; then
   printf '%s self-test assertion(s) failed. The stage-walk check has stopped discriminating.\n' "$FAILURES"
   exit 1
 fi
-printf 'all %s assertions passed: stage chaining, --platform stripping, the bad-external-base regression, and the real Dockerfile.\n' "$PASSES"
+printf 'all %s assertions passed: stage chaining, --platform stripping, the bad-external-base regression, the digest pin, and the real Dockerfile.\n' "$PASSES"
