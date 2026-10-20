@@ -72,11 +72,11 @@ expect_flagged short-digest.Dockerfile 24.04 "1:FROM ubuntu:24.04@sha256:68ee220
 expect_flagged uppercase-digest.Dockerfile 24.04 "1:FROM ubuntu:24.04@sha256:68EE"
 expect_flagged mixed-digests.Dockerfile 24.04 "2:FROM ubuntu:24.04@sha256:0123"
 
-# The five bases the grep this check replaced waved through as Ubuntu 24.04
-# (#65). A tagless digest or a build arg may well resolve to 24.04, but the
-# check cannot see that from the text, so it has to refuse them. Every other
-# external stage in these fixtures is pinned to docker/Dockerfile's digest, so
-# the bypass is the only line the check has any reason to print.
+# Five base lines a FROM ubuntu: filter or a regex match on the tag would
+# accept (#65). A tagless digest or a build arg may well resolve to 24.04, but
+# the check cannot see that from the text, so it has to refuse them. Every
+# other external stage in these fixtures shares one well-formed digest, so the
+# bypass is the only line the check has any reason to print.
 expect_flagged debian-stage.Dockerfile 24.04 "1:FROM debian:12@sha256:"
 expect_flagged digest-pin.Dockerfile 24.04 "3:FROM ubuntu@sha256:"
 # The fixture's own text, matched verbatim, so the build arg must not expand.
@@ -109,4 +109,4 @@ if [ "$FAILURES" -ne 0 ]; then
   printf '%s self-test assertion(s) failed. The stage-walk check has stopped discriminating.\n' "$FAILURES"
   exit 1
 fi
-printf 'all %s assertions passed: stage chaining, --platform stripping, the bad-external-base regression, the digest pin, the five #65 bypasses, and the real Dockerfile.\n' "$PASSES"
+printf 'all %s assertions passed: stage chaining, --platform stripping, the bad-external-base regression, the digest-pin format, the five #65 bypasses, and the real Dockerfile.\n' "$PASSES"
