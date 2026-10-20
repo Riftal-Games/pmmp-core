@@ -397,11 +397,24 @@ The one measurement is the UUID equality, run on 2026-09-07 as PHP 8.2 in a thro
 container against Java 21 on the host, with a negative control. It was not re-run for
 #43: nothing in the diff touches `calculateUuidFromXuid` or its inputs.
 
-One caution for anyone extending this. A field being declared in a model is not the
-same as the field being read. The `SelfSignedJwtBody` model in the protocol package
-declares `xid`, and reading only that model would suggest the fork consumes a proxied
-XUID. It does not: the consumer is `LoginPacketHandler`, and on that branch it assigns
-a literal. To establish what a value does, find its reads, not its declaration.
+Two cautions for anyone extending this.
+
+A field being declared in a model is not the same as the field being read. The
+`SelfSignedJwtBody` model in the protocol package declares `xid`, and reading only that
+model would suggest the fork consumes a proxied XUID. It does not: the consumer is
+`LoginPacketHandler`, and on that branch it assigns a literal. To establish what a value
+does, find its reads, not its declaration.
+
+A citation is taken from the source, never derived from a transformation of it.
+`sed -n 'A,Bp'` prints a range of a file with no line numbers, so a number reconstructed
+by counting from the start of that range is an offset added by hand: silent when wrong,
+and as authoritative to look at as a correct one. Counting through `sed -n '40,102p'`
+put the `aud` rejection at `AuthJwtHelper.php:90-92`. It is at `:92-94`. Take every line
+number from a tool that emits it, `grep -n`, `rg -n` or the Read tool.
+`riftal-infra/docs/waterdogpe-protocol-support.md`, section "Method", records two more
+of the same shape: a branch's commit list read as if it were filtered to one path, and
+a line attributed to a commit from a diff's removed side rather than from the commit
+whose added side wrote it.
 
 ## What would settle what is still open
 
