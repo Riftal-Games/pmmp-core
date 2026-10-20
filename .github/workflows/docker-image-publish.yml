@@ -181,11 +181,11 @@ jobs:
 
           STRAGGLERS="$(docker/check-ubuntu-base.sh docker/Dockerfile "$EXPECTED_UBUNTU")"
           if [ -n "$STRAGGLERS" ]; then
-            echo "::error::stage(s) not on Ubuntu $EXPECTED_UBUNTU:"
+            echo "::error::stage(s) not on Ubuntu $EXPECTED_UBUNTU at one shared pinned digest:"
             echo "$STRAGGLERS"
             exit 1
           fi
-          echo "all $TOTAL stages pinned to Ubuntu $EXPECTED_UBUNTU"
+          echo "all $TOTAL stages pinned to Ubuntu $EXPECTED_UBUNTU at one digest"
 
       # Each boot passes --auto-report.enabled=0 exactly once: the shipped
       # pocketmine.yml posts crash dumps to a public archive, and a repeated
