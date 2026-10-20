@@ -1,0 +1,70 @@
+name: Base image digest drift
+
+# docker/Dockerfile pins ubuntu:24.04 by digest (#19), so a republished tag
+# reaches the image only through a reviewed refresh. This run makes the pin's
+# age loud. It never runs on pull_request or push, so an Ubuntu republish can
+# never block an unrelated merge.
+on:
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift:
+    runs-on: [self-hosted, linux, riftal]
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Exit 1 is drift and files the refresh below. Exit 2, a digest that
+      # could not be read, fails the run without filing anything.
+      - name: Compare the pinned digest with the registry's
+        id: compare
+        shell: bash
+        run: bash .github/workflows/check-base-digest.sh docker/Dockerfile
+
+      # One open issue per drift, found by its fixed title, so a pin that ages
+      # across several weeks collects comments instead of duplicates. The
+      # milestone label is applied at triage.
+      - name: Open or update the refresh issue
+        if: failure() && steps.compare.outputs.current != ''
+        uses: actions/github-script@v9
+        env:
+          PINNED: ${{ steps.compare.outputs.pinned }}
+          CURRENT: ${{ steps.compare.outputs.current }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const title = 'ubuntu:24.04 base digest drifted';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              `The registry serves \`ubuntu:24.04\` as \`${process.env.CURRENT}\`.`,
+              `docker/Dockerfile pins \`${process.env.PINNED}\`.`,
+              '',
+              'The refresh changes the digest on all three FROM lines of docker/Dockerfile and nothing else.',
+              '',
+              `Found by ${run}.`,
+            ].join('\n');
+            const open = await github.paginate(github.rest.issues.listForRepo, {
+              ...context.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const existing = open.find((issue) => !issue.pull_request && issue.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: existing.number, body });
+              core.info(`commented on #${existing.number}`);
+            } else {
+              const created = await github.rest.issues.create({
+                ...context.repo,
+                title,
+                body,
+                labels: ['owner:core', 'route:loop'],
+              });
+              core.info(`opened #${created.data.number}`);
+            }
