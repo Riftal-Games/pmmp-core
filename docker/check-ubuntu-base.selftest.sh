@@ -16,7 +16,7 @@ FAILURES=0
 PASSES=0
 # Every assertion below must run. A harness that quietly skips one and still
 # prints its closing line is the exact failure it exists to catch.
-EXPECTED_ASSERTIONS=8
+EXPECTED_ASSERTIONS=13
 
 pass() { printf '  ok    %s\n' "$1"; PASSES=$((PASSES + 1)); }
 fail() { printf '::error::%s\n' "$1"; FAILURES=$((FAILURES + 1)); }
@@ -48,15 +48,16 @@ expect_clean() {
   fi
 }
 
-# Fixtures that must still be flagged, naming the exact bad line so a checker
-# that stops matching for an unrelated reason cannot pass by accident.
+# Fixtures that must be flagged on exactly one line, the one that begins with
+# $3. $3 starts with the line number, so a checker that flags a clean line
+# instead of the bad one, or as well as it, fails here too.
 expect_flagged() {
   local out
   run_check "$FIXTURES/$1" "$2" || return 0
-  if [ -n "$out" ] && printf '%s' "$out" | grep -qF "$3"; then
+  if [[ "$out" == "$3"* && "$out" != *$'\n'* ]]; then
     pass "$1 -> flagged, naming $3"
   else
-    fail "expected $1 to flag a line containing '$3' on Ubuntu $2, got:"
+    fail "expected $1 to flag only the line beginning '$3' on Ubuntu $2, got:"
     printf '%s\n' "$out"
   fi
 }
@@ -70,6 +71,19 @@ expect_flagged unpinned-base.Dockerfile 24.04 "2:FROM ubuntu:24.04 AS build-pock
 expect_flagged short-digest.Dockerfile 24.04 "1:FROM ubuntu:24.04@sha256:68ee22004a91 AS"
 expect_flagged uppercase-digest.Dockerfile 24.04 "1:FROM ubuntu:24.04@sha256:68EE"
 expect_flagged mixed-digests.Dockerfile 24.04 "2:FROM ubuntu:24.04@sha256:0123"
+
+# Five base lines a FROM ubuntu: filter or a regex match on the tag would
+# accept (#65). A tagless digest or a build arg may well resolve to 24.04, but
+# the check cannot see that from the text, so it has to refuse them. Every
+# other external stage in these fixtures shares one well-formed digest, so the
+# bypass is the only line the check has any reason to print.
+expect_flagged debian-stage.Dockerfile 24.04 "1:FROM debian:12@sha256:"
+expect_flagged digest-pin.Dockerfile 24.04 "3:FROM ubuntu@sha256:"
+# The fixture's own text, matched verbatim, so the build arg must not expand.
+# shellcheck disable=SC2016
+expect_flagged build-arg-base.Dockerfile 24.04 '3:FROM ${BASE_IMAGE} AS build-pocketmine'
+expect_flagged extra-spaces.Dockerfile 24.04 "2:FROM  ubuntu:22.04@sha256:"
+expect_flagged unescaped-dot.Dockerfile 24.04 "2:FROM ubuntu:24x04@sha256:"
 
 # The real Dockerfile is the thing production ships. Passing on the fixtures
 # above is worthless if the same logic no longer agrees with the file it was
@@ -95,4 +109,4 @@ if [ "$FAILURES" -ne 0 ]; then
   printf '%s self-test assertion(s) failed. The stage-walk check has stopped discriminating.\n' "$FAILURES"
   exit 1
 fi
-printf 'all %s assertions passed: stage chaining, --platform stripping, the bad-external-base regression, the digest pin, and the real Dockerfile.\n' "$PASSES"
+printf 'all %s assertions passed: stage chaining, --platform stripping, the bad-external-base regression, the digest-pin format, the five #65 bypasses, and the real Dockerfile.\n' "$PASSES"
