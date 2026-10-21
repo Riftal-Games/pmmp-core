@@ -33,10 +33,9 @@ HERE="$(dirname "$0")"
 LOG="$(mktemp)"
 FIFO="$(mktemp -u)"
 mkfifo "$FIFO"
-# Unlike the other boot steps, this one needs the server alive while we
-# ping it, so it cannot pipe `echo stop` in. Hold stdin open through a
-# FIFO instead, and write `stop` into it once the ping is done, so the
-# shutdown stays clean.
+# The server must stay alive while it is pinged, so `echo stop` cannot be
+# piped in. Hold stdin open through a FIFO instead, and write `stop` into
+# it once the ping is done, so the shutdown stays clean.
 exec 3<>"$FIFO"
 
 DOCKER_PID=""
@@ -45,23 +44,32 @@ DOCKER_PID=""
 # under the runner instead of being torn down with the job.
 cleanup() {
   local status=$?
-  local mounts="" name
+  local mounts="" name survived=0
   local -a volumes=()
-  exec 3>&- 2>/dev/null || true
+  { exec 3>&-; } 2>/dev/null || true
   if [ -n "$DOCKER_PID" ]; then
     docker stop "$CONTAINER_NAME" > /dev/null 2>&1 || true
     wait "$DOCKER_PID" 2>/dev/null || true
   fi
   # docker/Dockerfile declares VOLUME /data and /plugins and this run
   # mounts neither, so the container holds exactly two anonymous
-  # volumes. A count other than two means the check below no longer
-  # covers what the Dockerfile creates.
-  if mounts=$(docker inspect -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}} {{end}}{{end}}' "$CONTAINER_NAME" 2>/dev/null); then
+  # volumes. The count guards the survival loop below: a format string
+  # that matches nothing, or a renamed `.Type`, yields zero names, and
+  # the loop would then pass without checking a single volume.
+  #
+  # A failed inspect fails the run rather than warning, because a
+  # REACHABLE pass is also the claim that no volume was stranded, and
+  # without the names nothing backs that claim. docker's own reason
+  # goes to the log above the error.
+  if mounts=$(docker inspect -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}} {{end}}{{end}}' "$CONTAINER_NAME"); then
     read -r -a volumes <<< "$mounts"
     if [ "${#volumes[@]}" != 2 ]; then
       echo "::error::expected 2 anonymous volumes on $CONTAINER_NAME, found ${#volumes[@]}: $mounts"
       status=1
     fi
+  else
+    echo "::error::docker inspect failed on $CONTAINER_NAME, so its anonymous volumes were not checked"
+    status=1
   fi
   docker rm -v "$CONTAINER_NAME" > /dev/null 2>&1 || true
   # A volume that outlives the container is stranded on the daemon
@@ -69,9 +77,13 @@ cleanup() {
   for name in "${volumes[@]}"; do
     if docker volume inspect "$name" > /dev/null 2>&1; then
       echo "::error::anonymous volume $name outlived docker rm -v $CONTAINER_NAME"
+      survived=1
       status=1
     fi
   done
+  if [ "${#volumes[@]}" != 0 ] && [ "$survived" = 0 ]; then
+    echo "anonymous volumes checked: ${volumes[*]}, all removed by docker rm -v"
+  fi
   rm -f "$LOG" "$LOG.clean" "$FIFO"
   exit "$status"
 }
