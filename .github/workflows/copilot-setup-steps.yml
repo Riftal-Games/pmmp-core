@@ -1,8 +1,11 @@
 name: "Copilot Agent environment setup"
 
+# A branch push is covered by its pull_request run. Triggering on both would
+# run the job twice on the shared self-hosted runners.
 on:
   workflow_dispatch:
   push:
+    branches: [riftal]
     paths:
       - .github/workflows/copilot-setup-steps.yml
   pull_request:
