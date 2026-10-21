@@ -239,7 +239,7 @@ jobs:
             exit 1
           fi
 
-      # REACHABLE coverage. The three checks above prove the image builds on the
+      # REACHABLE coverage. The four steps above prove the image builds on the
       # right base and that the server boots and loads plugins, but none of them
       # publishes a port, so none of them can tell a joinable container from an
       # unjoinable one. Bedrock is RakNet over UDP: a TCP-only publish produces a
