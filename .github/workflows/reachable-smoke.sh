@@ -77,12 +77,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# --auto-report.enabled=0 exactly once: the shipped pocketmine.yml posts
-# crash dumps to a public archive, and a repeated flag reaches the server as
-# an array, which casts back to true (#91).
+# --auto-report.enabled=0 and --auto-updater.enabled=0 exactly once: the
+# shipped pocketmine.yml posts crash dumps to a public archive and sends an
+# update check from every boot, and a repeated flag reaches the server as an
+# array, which casts back to true (#91, #96).
 docker run --name "$CONTAINER_NAME" -i \
   -p 127.0.0.1::19132/udp \
-  -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0 --motd=$EXPECTED_MOTD" \
+  -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0 --auto-updater.enabled=0 --motd=$EXPECTED_MOTD" \
   "$IMAGE" <"$FIFO" >"$LOG" 2>&1 &
 DOCKER_PID=$!
 
