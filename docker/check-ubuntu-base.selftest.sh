@@ -3,10 +3,11 @@
 #
 # docker/Dockerfile never chains a `FROM <stage> AS <name>` off an earlier
 # stage and never uses `--platform=`, so a CI run against it alone proves
-# nothing about either branch pmmp-core#66 added. These fixtures exercise
-# both branches directly, the bad-external-base case pmmp-core#21/#65 fixed,
-# and each way a digest pin can be missing, malformed or split across stages
-# (pmmp-core#19), so a revert of any of them turns this red on the same commit.
+# nothing about how the check handles either. These fixtures exercise both
+# directly, along with an external base on the wrong Ubuntu that a later stage
+# chains off, and each way a digest pin can be missing, malformed or split
+# across stages, so the check losing any of these turns this red on the same
+# commit.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -73,7 +74,7 @@ expect_flagged uppercase-digest.Dockerfile 24.04 "1:FROM ubuntu:24.04@sha256:68E
 expect_flagged mixed-digests.Dockerfile 24.04 "2:FROM ubuntu:24.04@sha256:0123"
 
 # Five base lines a FROM ubuntu: filter or a regex match on the tag would
-# accept (#65). A tagless digest or a build arg may well resolve to 24.04, but
+# accept. A tagless digest or a build arg may well resolve to 24.04, but
 # the check cannot see that from the text, so it has to refuse them. Every
 # other external stage in these fixtures shares one well-formed digest, so the
 # bypass is the only line the check has any reason to print.
@@ -109,4 +110,4 @@ if [ "$FAILURES" -ne 0 ]; then
   printf '%s self-test assertion(s) failed. The stage-walk check has stopped discriminating.\n' "$FAILURES"
   exit 1
 fi
-printf 'all %s assertions passed: stage chaining, --platform stripping, the bad-external-base regression, the digest-pin format, the five #65 bypasses, and the real Dockerfile.\n' "$PASSES"
+printf 'all %s assertions passed: stage chaining, --platform stripping, the wrong-Ubuntu external base, the digest-pin format, the five tag-filter bypasses, and the real Dockerfile.\n' "$PASSES"
