@@ -98,6 +98,18 @@ else
   echo "ok   inspect-stderr"
 fi
 
+# The pass line is the claim that no volume was stranded, so a run that left
+# a volume behind, or checked none, must not print it.
+for name in volume-outlived no-volumes inspect-fails; do
+  if grep -qF "all removed" "$DIR/$name/out"; then
+    echo "FAIL $name-no-pass: output claims every volume was removed"
+    cat "$DIR/$name/out"
+    FAILED=1
+  else
+    echo "ok   $name-no-pass"
+  fi
+done
+
 # A fixed host port is shared by every matrix leg and job of one run, so the
 # run must leave the port to the daemon and ping the one it reports (#64).
 if ! grep -qxF -- 127.0.0.1::19132/udp "$DIR/healthy/run-args"; then
