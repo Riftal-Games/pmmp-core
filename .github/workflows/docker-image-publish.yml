@@ -187,9 +187,10 @@ jobs:
           fi
           echo "all $TOTAL stages pinned to Ubuntu $EXPECTED_UBUNTU at one digest"
 
-      # Each boot passes --auto-report.enabled=0 exactly once: the shipped
-      # pocketmine.yml posts crash dumps to a public archive, and a repeated
-      # flag reaches the server as an array, which casts back to true (#91).
+      # Each boot passes --auto-report.enabled=0 and --auto-updater.enabled=0
+      # exactly once: the shipped pocketmine.yml posts crash dumps to a public
+      # archive and sends an update check from every boot, and a repeated flag
+      # reaches the server as an array, which casts back to true (#91, #96).
       # shell: bash brings -e and pipefail. The server's exit status is held
       # until the upload check has read the log, because an upload only ever
       # comes from Server::crashDump(), which always exits non-zero.
@@ -199,7 +200,7 @@ jobs:
         run: |
           LOG="$(mktemp)"
           STATUS=0
-          echo stop | docker run --rm -i -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" "$IMAGE_ID" | tee "$LOG" || STATUS=$?
+          echo stop | docker run --rm -i -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0 --auto-updater.enabled=0" "$IMAGE_ID" | tee "$LOG" || STATUS=$?
           .github/workflows/check-no-crash-upload.sh "$LOG"
           [ "$STATUS" = 0 ] || exit "$STATUS"
 
@@ -209,7 +210,7 @@ jobs:
         run: |
           LOG="$(mktemp)"
           STATUS=0
-          echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/create-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" "$IMAGE_ID" | tee "$LOG" || STATUS=$?
+          echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/create-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0 --auto-updater.enabled=0" "$IMAGE_ID" | tee "$LOG" || STATUS=$?
           .github/workflows/check-no-crash-upload.sh "$LOG"
           [ "$STATUS" = 0 ] || exit "$STATUS"
           test -f ./docker/test_data/plugin_data/data-test/create-data
@@ -225,7 +226,7 @@ jobs:
         run: |
           LOG="$(mktemp)"
           STATUS=0
-          echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0" "$IMAGE_ID" | tee "$LOG" || STATUS=$?
+          echo stop | docker run --rm -i -v ./docker/test_data:/data -v ./docker/testsuite/verify-data:/plugins -e POCKETMINE_ARGS="--settings.enable-dev-builds=1 --auto-report.enabled=0 --auto-updater.enabled=0" "$IMAGE_ID" | tee "$LOG" || STATUS=$?
           .github/workflows/check-no-crash-upload.sh "$LOG"
           [ "$STATUS" = 0 ] || exit "$STATUS"
 
