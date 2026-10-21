@@ -34,7 +34,11 @@ case "$1" in
     printf '%s' "${STUB_PORT-127.0.0.1:41234}"
     ;;
   inspect)
-    echo "vol-data vol-plugins "
+    if [ -n "${STUB_INSPECT_FAILS:-}" ]; then
+      echo "Error: No such object: ${*: -1}" >&2
+      exit 1
+    fi
+    echo "${STUB_VOLUMES-vol-data vol-plugins }"
     ;;
   rm)
     [ -n "${STUB_KEEP_VOLUMES:-}" ] || touch "$STUB_STATE/removed"
@@ -79,6 +83,20 @@ expect 1 docker-run-exit-3 "docker run exited 3 after 'stop'" STUB_RUN_STATUS=3
 expect 1 wait-timeout "server did not shut down cleanly" STUB_WAIT=hang
 expect 1 no-pong "NOT REACHABLE" STUB_PING_STATUS=1
 expect 1 volume-outlived "anonymous volume vol-data outlived" STUB_KEEP_VOLUMES=1
+expect 0 volumes-removed "anonymous volumes checked: vol-data vol-plugins, all removed"
+expect 1 one-volume "expected 2 anonymous volumes on smoke-one-volume, found 1" STUB_VOLUMES=vol-data
+expect 1 no-volumes "expected 2 anonymous volumes on smoke-no-volumes, found 0" STUB_VOLUMES=
+expect 1 inspect-fails "docker inspect failed on smoke-inspect-fails" STUB_INSPECT_FAILS=1
+
+# Cleanup closes the console FIFO with stderr discarded, and that must not
+# discard the reason docker gives for a failed inspect.
+if ! grep -qF "No such object: smoke-inspect-fails" "$DIR/inspect-fails/out"; then
+  echo "FAIL inspect-stderr: docker's own error for the failed inspect is missing"
+  cat "$DIR/inspect-fails/out"
+  FAILED=1
+else
+  echo "ok   inspect-stderr"
+fi
 
 # A fixed host port is shared by every matrix leg and job of one run, so the
 # run must leave the port to the daemon and ping the one it reports (#64).
