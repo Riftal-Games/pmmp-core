@@ -59,7 +59,7 @@ Use `docker ps` to see a list of running containers. It will look like this:
 ```
 user@DYLANS-PC:~/pm-docker-test$ docker ps
 CONTAINER ID   IMAGE                                     COMMAND                  CREATED         STATUS         PORTS                                                                              NAMES
-dc20edd3dd62   ghcr.io/axolotl-pm/pocketmine-mp:5.46.0   "start-pocketmine"       7 seconds ago   Up 6 seconds   19132/tcp, 0.0.0.0:19132-19133->19132-19133/udp, :::19132-19133->19132-19133/udp   brave_dijkstra
+dc20edd3dd62   ghcr.io/axolotl-pm/pocketmine-mp:5.46.0   "/usr/bin/tini -- st…"   7 seconds ago   Up 6 seconds   19132/tcp, 0.0.0.0:19132-19133->19132-19133/udp, :::19132-19133->19132-19133/udp   brave_dijkstra
 ```
 In this case, the container name is `brave_dijkstra`, but it might be something else in your case.
 
@@ -99,14 +99,19 @@ The `POCKETMINE_ARGS` environment variable will be passed to `PocketMine-MP.phar
 ## Keep the entrypoint
 The image runs `tini -- start-pocketmine`, so the server is never pid 1 in the
 container. Do not override this with `docker run --entrypoint` or a compose
-`entrypoint:`. To change what runs, override the command instead, and keep tini
-in front of it.
+`entrypoint:`. To change what runs, override the command instead; the tini
+entrypoint stays in front of it, so do not add tini to the command yourself.
 
 After a crash the server ends itself with a SIGKILL to its own pid
 (`Server::crashDump()` in `src/Server.php`). The kernel drops that signal when
 the target is pid 1 of its namespace, and the server then waits forever on any
 plugin thread still running. Without tini, a server that crashes on boot leaves
 its container up and never exits on its own (#105).
+
+With tini, a crashed server's container can still take up to 120 seconds to exit.
+To throttle crash loops, `Server::crashDump()` holds a crashed server until it
+has been up for 120 seconds, printing `waiting <n>s to throttle automatic
+restart`, and only then kills itself. A crash on boot is the slowest case.
 
 ## Colour output
 `--enable-ansi` is passed only when the container's stdout is an actual TTY, for
