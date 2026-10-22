@@ -1,0 +1,27 @@
+# The token scopes each workflow in this directory declares, read by
+# check-workflow-permissions.sh. One line per scope: <workflow> <where> <scope>,
+# where <where> is workflow or job:<id> and <scope> is name:level or {}.
+# A scope that needs a reason has it above the workflow's permissions: block.
+base-digest-drift.yml workflow contents:read
+base-digest-drift.yml workflow issues:write
+branch-sync-cron-trigger.yml workflow {}
+copilot-setup-steps.yml job:copilot-setup-steps contents:read
+crowdin-download-cron-trigger.yml workflow {}
+crowdin-upload-trigger.yml workflow {}
+discord-release-notify.yml workflow contents:read
+docker-image-ci.yml workflow contents:read
+docker-image-publish.yml job:build contents:read
+docker-image-publish.yml job:build packages:write
+draft-release-pr-check.yml workflow contents:read
+draft-release.yml job:check contents:read
+draft-release.yml job:draft contents:write
+draft-release.yml job:draft pull-requests:write
+draft-release.yml job:skip contents:write
+draft-release.yml job:trigger-post-release-workflow {}
+main-php-matrix.yml workflow contents:read
+main.yml workflow contents:read
+pr-remove-waiting-label.yml workflow pull-requests:write
+pr-stale.yml workflow issues:read
+pr-stale.yml workflow pull-requests:write
+support.yml workflow issues:write
+update-updater-api.yml workflow {}

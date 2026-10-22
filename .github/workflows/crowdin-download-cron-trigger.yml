@@ -9,6 +9,9 @@ name: Trigger Crowdin download
 on:
   workflow_dispatch: #for testing
 
+# The dispatch authenticates as the RestrictedActions app, never as this token.
+permissions: {}
+
 jobs:
   trigger:
     name: Trigger Crowdin download RestrictedActions workflow

@@ -24,6 +24,11 @@ jobs:
   skip:
     name: Check whether to ignore this tag
     runs-on: ubuntu-22.04
+    # gh release view finds a draft release only with a token that can write
+    # contents, and the draft made when the release PR merged is the one
+    # this looks for.
+    permissions:
+      contents: write
 
     outputs:
       skip: ${{ steps.exists.outputs.exists == 'true' }}
@@ -48,6 +53,8 @@ jobs:
     if: needs.skip.outputs.skip != 'true'
     name: Check release
     uses: ./.github/workflows/draft-release-pr-check.yml
+    permissions:
+      contents: read
 
   trigger-post-release-workflow:
     name: Trigger post-release RestrictedActions workflow
@@ -55,6 +62,8 @@ jobs:
     if: needs.check.outputs.valid == 'true' && github.ref_type != 'tag' #can't do post-commit for a tag
 
     runs-on: ubuntu-22.04
+    # The dispatch authenticates as the RestrictedActions app, never as this token.
+    permissions: {}
 
     steps:
       - name: Generate access token
@@ -80,6 +89,10 @@ jobs:
     if: needs.check.outputs.valid == 'true' || github.ref_type == 'tag' #ignore validity check for tags
 
     runs-on: ubuntu-22.04
+    # Creates the draft release and comments its URL on the merged PR.
+    permissions:
+      contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v7
