@@ -10,6 +10,10 @@ on:
         description: 'Release to make notification for'
         required: true
 
+# The checkout and the release lookup in discord-release-embed.php only read.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest

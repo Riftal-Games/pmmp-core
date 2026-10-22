@@ -18,6 +18,9 @@ on:
         default: '["self-hosted", "linux", "riftal"]'
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   phpstan:
     name: PHPStan analysis

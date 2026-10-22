@@ -10,6 +10,9 @@ on:
       - major-next
   workflow_dispatch:
 
+# The dispatch authenticates as the RestrictedActions app, never as this token.
+permissions: {}
+
 jobs:
   upload:
     name: Upload translations

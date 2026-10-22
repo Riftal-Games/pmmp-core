@@ -10,6 +10,10 @@ on:
         description: 'Release to publish info for'
         required: true
 
+# The checkout and the push go through the deploy key and the build info
+# through a release download URL, so this token is never used.
+permissions: {}
+
 jobs:
   build:
     runs-on: ubuntu-latest
