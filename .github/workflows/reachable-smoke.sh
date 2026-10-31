@@ -23,11 +23,11 @@ CONTAINER_NAME="$2"
 EXPECTED_MOTD="$3"
 
 # Advertised Bedrock protocol. Derived from ProtocolInfo::CURRENT_PROTOCOL
-# in axolotl-pm/bedrock-protocol 62.0.0+bedrock-1.26.50, which
+# in axolotl-pm/bedrock-protocol 64.0.0+bedrock-1.26.60, which
 # composer.lock pins. A protocol bump has to move this number
 # deliberately, because that is the value that otherwise diverges from
 # the client and from the proxy in silence.
-EXPECTED_PROTOCOL="2193"
+EXPECTED_PROTOCOL="2225"
 
 HERE="$(dirname "$0")"
 LOG="$(mktemp)"
