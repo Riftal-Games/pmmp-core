@@ -59,14 +59,15 @@ Protocol changes ship as a new **minor** version, never a patch. PMMP's rule, an
 
 ## Protocol position
 
-Verified 2026-09-27 by reading `ProtocolInfo.php` at each ref in `axolotl-pm/BedrockProtocol`.
+Verified 2026-09-27 by reading `ProtocolInfo.php` at each ref in `axolotl-pm/BedrockProtocol`, and the 1.26.60 row on 2026-11-01 from the `ProtocolInfo.php` inside the built image's phar.
 
 | Bedrock | Protocol | Where |
 |---|---|---|
 | 1.26.40 | 2168 | upstream 5.45.0, protocol lib 59.0.1 |
 | 1.26.44 | 2168 | upstream 5.46.0 and 5.46.1, protocol lib 60.0.0 |
 | 1.26.45 | 2169 | upstream 5.47.0 carried in 5.48.0, protocol lib 61.0.0 |
-| 1.26.50 | 2193 | this build, `riftal`, upstream 5.49.1, protocol lib 62.0.0 |
+| 1.26.50 | 2193 | upstream 5.49.1, protocol lib 62.0.0 |
+| 1.26.60 | 2225 | this build, `riftal`, upstream 5.51.0, protocol lib 64.0.0 |
 
 PMMP's final release 5.44.3 was Bedrock 1.26.30, protocol 1001.
 
